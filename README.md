@@ -13,7 +13,9 @@ It ships as a VST3 / CLAP / AU / LV2 plugin, a standalone app, and later a
 headless Raspberry Pi appliance. JUCE 8, C++17, CMake, same toolchain as
 [Vivisect](https://github.com/djshellshoxxx/faultline).
 
-Status: specification stage. No code yet.
+Status: engine core (ES-01) implemented as a plain C++17 library with tests and an offline evaluation CLI; no plugin yet.
+
+Build: `cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build && ctest --test-dir build`
 
 ## Documents
 

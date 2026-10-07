@@ -1,0 +1,5 @@
+add_executable(pacemaker_eval main.cpp)
+target_link_libraries(pacemaker_eval PRIVATE pacemaker_engine)
+if(NOT MSVC)
+  target_compile_options(pacemaker_eval PRIVATE -Wall -Wextra)
+endif()
