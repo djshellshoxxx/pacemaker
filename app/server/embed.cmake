@@ -1,0 +1,12 @@
+# Generates UiData.h: the UI page as chunks of raw string literals (keeps each under MSVC's 16 KB limit).
+file(READ "${INPUT}" CONTENT)
+string(LENGTH "${CONTENT}" LEN)
+set(OUT "// Generated from ui/index.html. Do not edit.\n#pragma once\n#include <string>\nnamespace pacemaker {\ninline std::string uiHtml() {\n  std::string s;\n")
+set(POS 0)
+while(POS LESS LEN)
+  string(SUBSTRING "${CONTENT}" ${POS} 8000 CHUNK)
+  string(APPEND OUT "  s += R\"PMUI(${CHUNK})PMUI\";\n")
+  math(EXPR POS "${POS} + 8000")
+endwhile()
+string(APPEND OUT "  return s;\n}\n}\n")
+file(WRITE "${OUTPUT}" "${OUT}")

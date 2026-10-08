@@ -26,23 +26,23 @@ working checklist; keep this file current.
 
 ## Phase 2: Outputs and calibration (3 to 4 weeks)
 
-- [ ] ClockMap with host timestamps and HostTimeFilter fallback (ES-02 section 1)
-- [ ] Link output behind `PACEMAKER_WITH_LINK`, publisher arbitration, two-process test O1 and O2
-- [ ] MIDI clock ClockThread with CoreMIDI timestamps, Linux ALSA, Windows spin path; jitter test O3
-- [ ] OSC output with profiles and timetags; test O5
-- [ ] Sync bus pulse and click; test O4
-- [ ] Loopback calibration wizard and storage (ES-03 section 4); tests L1 to L4
-- [ ] Tap-along calibration for plugin builds (ES-03 section 5)
-- [ ] Hardware clock offset helper (ES-03 section 6)
+- [x] ClockMap with host timestamps and regression fallback (ES-02 section 1); plugin host-timestamp plumbing comes with Phase 3
+- [ ] Link output behind `PACEMAKER_WITH_LINK`, publisher arbitration, two-process test O1 and O2: policy and O2 (mock session) done, `ableton::Link` adapter and O1 pending the licence
+- [ ] MIDI clock ClockThread with CoreMIDI timestamps, Linux ALSA, Windows spin path; jitter test O3: generator, adaptive spin thread, raw device sink and O3 done on Linux; CoreMIDI timestamps and Windows path pending
+- [x] OSC output with profiles and timetags; test O5
+- [x] Sync bus pulse and click; test O4 (renderer only, audio device comes with the plugin and standalone)
+- [ ] Loopback calibration wizard and storage (ES-03 section 4); tests L1 to L4: maths, storage and L1 to L3 done, wizard runs against a simulated interface in the web UI, real device capture and L4 pending
+- [ ] Tap-along calibration for plugin builds (ES-03 section 5): maths and test done, host beat grid plumbing pending
+- [x] Hardware clock offset helper (ES-03 section 6): maths and test; UI page pending
 
 ## Phase 3: Plugin, standalone and UX (4 to 6 weeks)
 
 - [ ] Processor with buses and role map (ES-04 section 4); MIDI note to role table
-- [ ] APVTS parameters, session settings, user settings, migrations (RS-04)
-- [ ] Main screen in the house style (RS-01 section 4), stage mode, MIDI learn
+- [ ] APVTS parameters, session settings, user settings, migrations (RS-04): settings object with versioned merge, presets and persistence done in `Settings`; APVTS binding pending
+- [ ] Main screen in the house style (RS-01 section 4), stage mode, MIDI learn: web version with stage mode and keyboard control done (RS-07), JUCE version and MIDI learn pending
 - [ ] Standalone shell with per-channel device panel (ES-04 section 5)
-- [ ] Song map panel and import (RS-01 section 6)
-- [ ] Drift log and report, tempo map export (RS-01 section 7)
+- [x] Song map panel and CSV import (RS-01 section 6); AbleSet import pending format confirmation
+- [x] Drift log and report, tempo map export (RS-01 section 7)
 - [ ] pluginval, clap-validator, lv2lint in CI; thread sanitizer job
 - [ ] Host documentation for Live, Logic, Reaper, Bitwig, Cubase, Studio One (RS-02 section 7)
 - [ ] Bundled Reaper script and Bitwig controller script
@@ -58,7 +58,7 @@ working checklist; keep this file current.
 
 ## Phase 5: Pacemaker Box (4 to 6 weeks, after v1.0)
 
-- [ ] Headless target, JSON config, cpp-httplib web UI with WebSocket status (RS-03 section 2)
+- [ ] Headless target, JSON config, cpp-httplib web UI with WebSocket status (RS-03 section 2): `pacemaker_server` has the JSON config and the web UI (own HTTP server, SSE instead of WebSocket); real audio input and the systemd packaging pending
 - [ ] Raspberry Pi OS image with read-only root, systemd service, avahi
 - [ ] Pisound DIN MIDI, GPIO LEDs, optional OLED
 - [ ] Field test with a hardware-only act

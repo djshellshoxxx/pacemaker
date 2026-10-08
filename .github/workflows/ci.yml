@@ -18,3 +18,5 @@ jobs:
         run: cmake --build build
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Server smoke test
+        run: ./build/app/server/pacemaker_server --help
