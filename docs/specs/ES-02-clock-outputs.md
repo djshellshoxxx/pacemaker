@@ -178,7 +178,7 @@ stereo, false)`); the main output passes input through unchanged when the
   `SetCurrentBPM`. Documented in INSTALL.
 - **Bitwig**: a bundled controller script subscribes to the same OSC and
   sets `transport.tempo()`. Documented.
-- **Live, Logic, Pro Tools, Reason**: Link.
+- **Live, Reason** (and Link-enabled apps such as Resolume): Link. **VERIFY** before publishing: Logic Pro and Pro Tools are not known to support Link natively; use MIDI clock or the Reaper/Bitwig scripts for them (see F-04 and F-27).
 - **Cubase, Studio One**: MIDI clock to a virtual port.
 - JUCE `AudioPlayHead::transportPlay()` is used for Start on hosts that
   report `canControlTransport()`; never for tempo.

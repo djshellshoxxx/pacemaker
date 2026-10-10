@@ -36,6 +36,8 @@ Build: `cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build
   hosts, standalone and appliance, state and presets, testing and release,
   licensing and distribution
 - `docs/specs/RS-07-web-ui-and-control-api.md` — the web UI and control API of `pacemaker_server`
+- `docs/specs/features/` — developer-ready feature specs F-01 to F-30 (index in `README.md` there): real audio input, real-drummer corpus, plugin and standalone, Link, cross-platform MIDI clock, e-drum input, Learn mode and odd meters, music analysis (key, chords, pitch, melody, percussion), and more
+- `docs/dev/DEVELOPMENT-PLAN.md` and `docs/dev/QUALITY-STRATEGY.md` — roadmap, milestones, risks, and the engineering rules for quality and speed
 - `docs/DIFFERENTIATION.md` — what makes Pacemaker different and the
   ranked list of additional features
 - `docs/PROJECT-PLAN.md` — phases, checklist and risks

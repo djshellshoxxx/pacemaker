@@ -1,7 +1,9 @@
 # Pacemaker project plan and checklist
 
 Phases are sequential; each ends with something usable. Tick boxes are the
-working checklist; keep this file current.
+working checklist; keep this file current. Scheduling, milestones M3 to v1.2,
+the risk register and estimates are in `docs/dev/DEVELOPMENT-PLAN.md`; every
+remaining item below has a spec in `docs/specs/features/` (index there).
 
 ## Phase 0: Foundations (1 to 2 weeks)
 
