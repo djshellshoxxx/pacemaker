@@ -37,17 +37,23 @@ bool parseDouble(const std::string& in, double& out)
         const size_t c = s.find(',');
         if (c != std::string::npos && s.find(',', c + 1) == std::string::npos) s[c] = '.';
     }
-    // Locale-independent: parse manually.
+    // Locale-independent: integer mantissa and decimal exponent, scaled once (exact for short inputs).
     size_t i = 0;
     bool neg = false;
     if (s[i] == '+' || s[i] == '-') { neg = s[i] == '-'; ++i; }
-    double v = 0.0;
+    double mant = 0.0;
+    int exp10 = 0, nd = 0;
     bool digits = false;
-    while (i < s.size() && std::isdigit((unsigned char) s[i])) { v = v * 10.0 + (s[i] - '0'); ++i; digits = true; }
+    while (i < s.size() && std::isdigit((unsigned char) s[i])) {
+        if (nd < 18) { mant = mant * 10.0 + (s[i] - '0'); if (mant > 0) ++nd; } else ++exp10;
+        ++i; digits = true;
+    }
     if (i < s.size() && s[i] == '.') {
         ++i;
-        double scale = 0.1;
-        while (i < s.size() && std::isdigit((unsigned char) s[i])) { v += (s[i] - '0') * scale; scale *= 0.1; ++i; digits = true; }
+        while (i < s.size() && std::isdigit((unsigned char) s[i])) {
+            if (nd < 18) { mant = mant * 10.0 + (s[i] - '0'); --exp10; if (mant > 0) ++nd; }
+            ++i; digits = true;
+        }
     }
     if (!digits) return false;
     if (i < s.size() && (s[i] == 'e' || s[i] == 'E')) {
@@ -58,8 +64,9 @@ bool parseDouble(const std::string& in, double& out)
         bool ed = false;
         while (i < s.size() && std::isdigit((unsigned char) s[i])) { if (e < 400) e = e * 10 + (s[i] - '0'); ++i; ed = true; }
         if (!ed) return false;
-        v *= std::pow(10.0, eneg ? -e : e);
+        exp10 += eneg ? -e : e;
     }
+    const double v = exp10 < 0 ? mant / std::pow(10.0, -exp10) : mant * std::pow(10.0, exp10);
     if (i != s.size() || !std::isfinite(v)) return false;
     out = neg ? -v : v;
     return true;

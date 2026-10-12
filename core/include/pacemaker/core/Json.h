@@ -4,6 +4,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -17,8 +18,9 @@ public:
     Json() = default;
     Json(std::nullptr_t) {}
     Json(bool b) : type_(Type::Bool), bool_(b) {}
-    Json(int v) : type_(Type::Number), num_((double) v) {}
-    Json(int64_t v) : type_(Type::Number), num_((double) v) {}
+    // Any integer type (int, int64_t, size_t, ...) without overload ambiguity.
+    template <typename T, std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, bool>, int> = 0>
+    Json(T v) : type_(Type::Number), num_((double) v) {}
     Json(double v) : type_(Type::Number), num_(v) {}
     Json(const char* s) : type_(Type::String), str_(s ? s : "") {}
     Json(std::string s) : type_(Type::String), str_(std::move(s)) {}
