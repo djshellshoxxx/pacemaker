@@ -1,3 +1,7 @@
 build/
 build-*/
 .cache/
+pm_test_*/
+pm_test_*.mid
+*.png
+!docs/**/*.png

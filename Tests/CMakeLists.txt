@@ -1,8 +1,20 @@
-add_executable(PacemakerTests
-  TestMain.cpp
-  EngineTests.cpp)
+file(GLOB PM_TEST_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+add_executable(PacemakerTests ${PM_TEST_SOURCES})
 target_link_libraries(PacemakerTests PRIVATE pacemaker_engine)
+if(TARGET pacemaker_services)
+  target_link_libraries(PacemakerTests PRIVATE pacemaker_services)
+  target_compile_definitions(PacemakerTests PRIVATE PM_HAVE_SERVICES=1)
+endif()
 if(NOT MSVC)
   target_compile_options(PacemakerTests PRIVATE -Wall -Wextra)
 endif()
 add_test(NAME PacemakerTests COMMAND PacemakerTests)
+
+# Web UI tests (Tests/WebTests.cpp): the web library is optional and is pulled in from web/ when present.
+if(TARGET pacemaker_services AND NOT TARGET pacemaker_web AND EXISTS ${PROJECT_SOURCE_DIR}/web/CMakeLists.txt)
+  add_subdirectory(${PROJECT_SOURCE_DIR}/web ${PROJECT_BINARY_DIR}/web)
+endif()
+if(TARGET pacemaker_web)
+  target_link_libraries(PacemakerTests PRIVATE pacemaker_web)
+  target_compile_definitions(PacemakerTests PRIVATE PM_HAVE_WEB=1)
+endif()

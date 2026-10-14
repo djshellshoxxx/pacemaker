@@ -1,0 +1,8 @@
+libasound2
+alsa-utils
+avahi-daemon
+network-manager
+rfkill
+parted
+e2fsprogs
+dosfstools

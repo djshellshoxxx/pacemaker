@@ -1,0 +1,44 @@
+[Unit]
+Description=Pacemaker Box (tempo follower and clock outputs)
+Documentation=file:///usr/local/share/pacemaker/README.md
+After=network-online.target sound.target avahi-daemon.service
+Wants=network-online.target
+# A stage box must always come back: never give up restarting.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=pacemaker
+Group=pacemaker
+SupplementaryGroups=audio gpio i2c
+ExecStartPre=/usr/local/bin/pacemaker_headless --check-config --config /etc/pacemaker/config.json
+ExecStart=/usr/local/bin/pacemaker_headless --config /etc/pacemaker/config.json
+Restart=always
+RestartSec=2
+# SIGTERM is handled: MIDI Stop is sent and the device is closed. Give it time, then force.
+KillSignal=SIGTERM
+TimeoutStopSec=8
+
+# Real-time audio: the process raises its audio thread to SCHED_FIFO (config rtPriority) and the clock thread too.
+LimitRTPRIO=95
+LimitMEMLOCK=infinity
+LimitNICE=-19
+# The service itself stays on the normal scheduler; the audio and clock threads raise themselves to SCHED_FIFO
+# (config rtPriority). To force the whole service real-time instead, add CPUSchedulingPolicy=fifo and CPUSchedulingPriority=70.
+CPUSchedulingPolicy=other
+Environment=HOME=/var/lib/pacemaker
+StateDirectory=pacemaker
+LogsDirectory=pacemaker
+WorkingDirectory=/var/lib/pacemaker
+
+# Light hardening that does not get in the way of ALSA, GPIO, I2C and the network.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ReadWritePaths=/var/lib/pacemaker /var/log/pacemaker
+
+[Install]
+WantedBy=multi-user.target

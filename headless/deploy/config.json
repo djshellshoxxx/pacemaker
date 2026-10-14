@@ -1,0 +1,40 @@
+{
+  "audio": {
+    "deviceType": "ALSA",
+    "inputDevice": "",
+    "outputDevice": "",
+    "sampleRate": 48000,
+    "bufferSize": 256,
+    "inputs": [
+      { "channel": 0, "role": "kick",     "distanceM": 0.10 },
+      { "channel": 1, "role": "snare",    "distanceM": 0.10 },
+      { "channel": 2, "role": "overhead", "distanceM": 1.00 }
+    ],
+    "syncLeft": -1,
+    "syncRight": -1,
+    "calibrationOut": -1
+  },
+  "midi": {
+    "inputs": ["*"],
+    "clockOut": "",
+    "virtualPort": false
+  },
+  "web": { "enabled": true, "port": 8080, "bind": "0.0.0.0", "token": "" },
+  "gpio": { "enabled": false, "chip": "/dev/gpiochip0", "beatLine": 17, "downbeatLine": 27, "pulseMs": 40 },
+  "oled": { "enabled": false, "device": "/dev/i2c-1", "address": 60, "rotate180": false },
+  "log": { "file": "/var/log/pacemaker/pacemaker.log", "maxKB": 1024, "keep": 3 },
+  "stateFile": "/var/lib/pacemaker/state.json",
+  "rtPriority": 70,
+  "state": {
+    "stateVersion": 2,
+    "params": { "profile": "stage", "referenceBpm": 0, "meterNum": 4, "meterDen": 4, "pattern": "rock44" },
+    "session": {
+      "moduleLatencyMs": 3.0,
+      "midi": { "enabled": false, "offsetMs": 0.0, "sppOnRelock": false },
+      "osc": { "enabled": false, "host": "127.0.0.1", "port": 9000, "root": "/pacemaker", "listenPort": 0 },
+      "link": { "enabled": true, "quantum": 4 },
+      "sync": { "enabled": false, "offsetMs": 0.0 },
+      "songs": { "songs": [], "current": -1 }
+    }
+  }
+}

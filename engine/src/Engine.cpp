@@ -51,6 +51,12 @@ struct Engine::Impl {
 
     // User actions, applied at the next hop boundary.
     std::atomic<int64_t> tapSample { -1 };
+    std::atomic<int> learnReq { 0 }, installFlag { 0 };
+    std::atomic<bool> learningFlag { false };
+    LearnedPattern pendingInstall;                 // written by the control thread while installFlag == 0
+    mutable std::atomic<uint32_t> learnSeq { 0 };  // seqlock around learnedOut
+    LearnedPattern learnedOut;
+    std::atomic<uint32_t> learnRevision { 0 };
     std::atomic<int> downbeat { 0 }, shift { 0 }, relock { 0 }, half { 0 }, dbl { 0 }, follow { 1 };
 
     void hopStep();
@@ -76,6 +82,10 @@ void Engine::prepare(const EngineConfig& cfgIn)
     m.cfg.numRoles = std::clamp(m.cfg.numRoles, 1, kMaxRoles);
     m.cfg.sampleRate = std::clamp(m.cfg.sampleRate, 8000.0, 192000.0);
     m.cfg.meter.beatsPerBar = std::clamp(m.cfg.meter.beatsPerBar, 1, 16);
+    if (m.cfg.pattern == BarPattern::Quintuple54) m.cfg.meter.beatsPerBar = 5;
+    if (m.cfg.pattern == BarPattern::Septuple78) { m.cfg.meter.beatsPerBar = 7; m.cfg.meter.beatUnit = 8; }
+    if (m.cfg.pattern == BarPattern::Learned && m.cfg.learnedPattern.beats >= 1 && m.cfg.learnedPattern.beats <= 16)
+        m.cfg.meter.beatsPerBar = m.cfg.learnedPattern.beats;
     m.cfg.tempoRange.minBpm = std::clamp(m.cfg.tempoRange.minBpm, 30.0, 300.0);
     m.cfg.tempoRange.maxBpm = std::clamp(m.cfg.tempoRange.maxBpm, m.cfg.tempoRange.minBpm + 10.0, 300.0);
     // Window/hop scale with sample rate so the frame rate stays about 188 fps.
@@ -99,6 +109,7 @@ void Engine::reset()
     for (int r = 0; r < kMaxRoles; ++r) m.fe[r].reset();
     m.induction.reset(); m.tracker.reset();
     m.events.clear(); m.discrete.clear();
+    m.learnReq.store(0); m.installFlag.store(0); m.learningFlag.store(false);
     m.samplesInHop = 0; m.sampleCount = 0; m.now = 0;
     m.pending = {}; m.pendingDiscrete = {};
     m.snap = BeatMapSnapshot {}; m.sequence = 0;
@@ -136,6 +147,11 @@ void Engine::Impl::hopStep()
     if (half.exchange(0)) tracker.scalePeriod(2.0);
     if (dbl.exchange(0)) tracker.scalePeriod(0.5);
     tracker.setFollow(follow.load() != 0);
+    if (installFlag.load(std::memory_order_acquire)) {
+        tracker.installPattern(pendingInstall);
+        installFlag.store(0, std::memory_order_release);
+    }
+    if (learnReq.exchange(0)) tracker.startLearn();
 
     float fused = 0.0f;
     FrontEnd::FrameOut outs[kMaxRoles];
@@ -153,7 +169,7 @@ void Engine::Impl::hopStep()
         FusedOnset o { std::min(outs[r].onset.sample, now), outs[r].onset.strength * roleWeight(cfg.roles[r]), outs[r].onset.tag };
         if (cfg.roles[r] == InputRole::Kick) o.tag = BandTag::KickLike;
         else if (cfg.roles[r] == InputRole::Snare) o.tag = BandTag::SnareLike;
-        if (cfg.roles[r] == InputRole::Trigger) o.tag = BandTag::Other;
+        if (cfg.roles[r] == InputRole::Trigger || cfg.roles[r] == InputRole::HiHat) o.tag = BandTag::Other;   // hats are not snare evidence
         if (events.size() < 1000) {
             EngineEvent ev; ev.type = EngineEvent::Onset;
             ev.onset = { o.sample, cfg.roles[r], outs[r].onset.strength, o.tag };
@@ -175,6 +191,16 @@ void Engine::Impl::hopStep()
     }
     flushPending(false);
     tracker.tick(now);
+    if (tracker.learnedReady()) {
+        const uint32_t v = learnSeq.load(std::memory_order_relaxed);
+        learnSeq.store(v + 1, std::memory_order_release);
+        std::atomic_thread_fence(std::memory_order_release);
+        learnedOut = tracker.takeLearned();
+        std::atomic_thread_fence(std::memory_order_release);
+        learnSeq.store(v + 2, std::memory_order_release);
+        learnRevision.fetch_add(1);
+    }
+    learningFlag.store(tracker.learning());
 }
 
 void Engine::Impl::deliver(const FusedOnset& o, InputRole role)
@@ -232,6 +258,33 @@ void Engine::shiftBar(int delta) { impl_->shift.fetch_add(delta); }
 void Engine::relock() { impl_->relock.store(1); }
 void Engine::halfTime() { impl_->half.store(1); }
 void Engine::doubleTime() { impl_->dbl.store(1); }
+void Engine::learnPattern() { impl_->learnReq.store(1); }
+bool Engine::learning() const { return impl_->learningFlag.load() || impl_->learnReq.load() != 0; }
+uint32_t Engine::learnedRevision() const { return impl_->learnRevision.load(); }
+
+bool Engine::getLearnedPattern(LearnedPattern& out) const
+{
+    const Impl& m = *impl_;
+    if (m.learnRevision.load() == 0) return false;
+    for (;;) {
+        const uint32_t a = m.learnSeq.load(std::memory_order_acquire);
+        if (a & 1u) continue;
+        std::atomic_thread_fence(std::memory_order_acquire);
+        out = m.learnedOut;
+        std::atomic_thread_fence(std::memory_order_acquire);
+        if (m.learnSeq.load(std::memory_order_acquire) == a) return true;
+    }
+}
+
+bool Engine::setLearnedPattern(const LearnedPattern& p)
+{
+    Impl& m = *impl_;
+    if (p.beats != m.cfg.meter.beatsPerBar || m.installFlag.load(std::memory_order_acquire)) return false;
+    m.pendingInstall = p;
+    m.installFlag.store(1, std::memory_order_release);
+    return true;
+}
+
 void Engine::setFollow(bool f) { impl_->follow.store(f ? 1 : 0); }
 
 } // namespace pacemaker
