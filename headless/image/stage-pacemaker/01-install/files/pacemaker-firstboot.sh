@@ -26,13 +26,9 @@ DATA_DEV="$(blkid -L PMDATA)"
 
 /usr/local/share/pacemaker/setup-hotspot.sh || echo "hotspot not configured (no wlan0?)"
 
-mkdir -p /var/lib/pacemaker && mount "$DATA_DEV" /var/lib/pacemaker 2>/dev/null || true
-chown pacemaker:pacemaker /var/lib/pacemaker
-touch "$FLAG"
-umount /var/lib/pacemaker 2>/dev/null || true
+# Copies /var/lib/pacemaker (hotspot passphrase) to the data partition, adds the fstab entry, mounts it and enables the overlay.
 /usr/local/share/pacemaker/overlay-root.sh --data-device "$DATA_DEV" --boot-ro
-# overlay-root.sh left the flag on the data partition mount; make sure it is there after the remount
-mount "$DATA_DEV" /var/lib/pacemaker 2>/dev/null || true
+chown pacemaker:pacemaker /var/lib/pacemaker
 touch "$FLAG"
 sync
 systemctl reboot

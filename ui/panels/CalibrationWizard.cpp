@@ -99,7 +99,7 @@ struct CalibrationWizard::Impl : juce::Timer {
         doneBtn.onClick = [this] { restoreRouting(); if (owner.onClose) owner.onClose(); };
         if (ctx.bridge) savedRouting = ctx.bridge->routing();
         startTimerHz(10);
-        show((Page) juce::SystemStats::getEnvironmentVariable("PM_STEP", "0").getIntValue()); /*TMPHACK*/
+        show(Page::Method);
     }
     ~Impl() override { stopTimer(); restoreRouting(); }
 
@@ -417,7 +417,7 @@ struct CalibrationWizard::Impl : juce::Timer {
             const double v[] = { 0.1, 1.0, 3.0 };
             const char* names2[] = { "Close", "Overhead", "Room", "Custom" };
             int sel = 3; for (int k = 0; k < 3; ++k) if (std::abs(c.distanceM - v[k]) < 0.005) sel = k;
-            auto* ed = f.own<juce::TextEditor>(); ed->setFont(sans(15.0f)); ed->setIndents(6, 0); ed->setInputRestrictions(6, "0123456789.");
+            auto* ed = f.own<juce::TextEditor>(); ed->setFont(sans(15.0f)); ed->setIndents(6, 6); ed->setInputRestrictions(6, "0123456789.");
             ed->setText(juce::String(c.distanceM, 2), false);
             std::vector<std::pair<juce::Component*, int>> ctl;
             juce::Array<juce::TextButton*> chips;

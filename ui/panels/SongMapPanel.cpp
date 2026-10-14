@@ -22,7 +22,7 @@ struct SongMapPanel::Impl : juce::Timer {
             go.setTooltip("Select this song now (loads its tempo, meter and pattern)");
             go.onClick = [this] { im.ctx.core.selectSong(index); im.sel = index; im.list.repaint(); };
             for (auto* e : { &name, &bpm, &meter, &countIn, &pc }) {
-                e->setFont(sans(15.0f)); e->setIndents(6, 0); e->setMultiLine(false); addAndMakeVisible(e);
+                e->setFont(sans(15.0f)); e->setIndents(6, 6); e->setMultiLine(false); addAndMakeVisible(e);
                 e->onFocusLost = [this] { commit(); };
                 e->onReturnKey = [this] { commit(); };
                 e->onTextChange = [this] { im.sel = index; };

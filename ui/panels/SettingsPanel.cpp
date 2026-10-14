@@ -90,7 +90,7 @@ struct SettingsPanel::Impl : juce::AsyncUpdater {
     juce::StringArray portCache;
     bool portsLoaded = false;
 
-    Impl(SettingsPanel& o, UiContext& c, int t) : owner(o), ctx(c), tab(juce::jlimit(0, 4, juce::SystemStats::getEnvironmentVariable("PM_TAB", juce::String(t)).getIntValue())) /*TMPHACK*/
+    Impl(SettingsPanel& o, UiContext& c, int t) : owner(o), ctx(c), tab(juce::jlimit(0, 4, t))
     {
         const char* names[] = { "Inputs", "Outputs", "Triggers", "Tools", "About" };
         for (int i = 0; i < 5; ++i) {
@@ -152,7 +152,7 @@ struct SettingsPanel::Impl : juce::AsyncUpdater {
             auto* dist = f.own<juce::ComboBox>();
             dist->addItem("Close  0.1 m", 1); dist->addItem("Overhead  1 m", 2); dist->addItem("Room  3 m", 3); dist->addItem("Custom", 4);
             auto* metres = f.own<juce::TextEditor>();
-            metres->setFont(sans(15.0f)); metres->setInputRestrictions(6, "0123456789."); metres->setIndents(6, 0);
+            metres->setFont(sans(15.0f)); metres->setInputRestrictions(6, "0123456789."); metres->setIndents(6, 6);
             metres->setText(juce::String(c.distanceM, 2), false);
             metres->setTooltip("Microphone distance in metres");
             auto* mute = f.own<juce::ToggleButton>("Mute");
@@ -453,7 +453,7 @@ struct SettingsPanel::Impl : juce::AsyncUpdater {
         load->setEnabled(!user.empty()); del->setEnabled(!user.empty());
         f.row("My presets", { { ubox, 240 }, { load, 90 }, { del, 90 } });
 
-        auto* name = f.own<juce::TextEditor>(); name->setFont(sans(15.0f)); name->setIndents(6, 0);
+        auto* name = f.own<juce::TextEditor>(); name->setFont(sans(15.0f)); name->setIndents(6, 6);
         name->setTextToShowWhenEmpty("Preset name", colours::dim); name->setText(presetName, false);
         name->onTextChange = [this, name] { presetName = name->getText(); };
         f.row("Save current as", { { name, 240 }, { f.makeButton("Save", [this] {

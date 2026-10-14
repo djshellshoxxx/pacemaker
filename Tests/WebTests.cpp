@@ -37,7 +37,6 @@ struct WebRig {
         core.prepare(kWebSr, 256, 1);
         feedSeconds(feedSec >= 0 ? feedSec : (double) dm.audio.size() / kWebSr);
         std::this_thread::sleep_for(std::chrono::milliseconds(80));
-        core.housekeepingOnce();
         web = std::make_unique<WebUi>(core);
         if (hooks) web->setHooks(*hooks);
         if (!token.empty()) web->setToken(token);
@@ -220,7 +219,6 @@ TEST_CASE(Web_RelockActionTakesEffectInTheEngine)
     }
     CHECK(seen);
     std::this_thread::sleep_for(std::chrono::milliseconds(80));
-    rig.core.housekeepingOnce();
     bool logged = false;
     for (const auto& r : rig.core.driftRows()) if (r.event == "relock" || r.event == "state") logged = true;
     CHECK(logged);                                                 // and the drift log records it

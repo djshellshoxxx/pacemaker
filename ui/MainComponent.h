@@ -50,7 +50,7 @@ public:
     static int preferredHeight() { return 740; }
 
 private:
-    struct Header; struct Trace; struct Inputs; struct Outputs; struct Transport; struct Footer;
+    struct Header; struct Trace; struct Inputs; struct Outputs; struct Transport; struct Footer; struct Backdrop;
     void timerCallback() override;
     UiContext& ctx_;
     UiModel model_;
@@ -63,6 +63,7 @@ private:
     std::unique_ptr<Transport> transport_;
     std::unique_ptr<Footer> footer_;
     std::unique_ptr<PanelBase> panel_;
+    std::unique_ptr<Backdrop> backdrop_;
     juce::TextButton closeBtn_ { juce::CharPointer_UTF8("\xc3\x97") };
     juce::Rectangle<int> panelFrame_;
     PmLookAndFeel laf_;

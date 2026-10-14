@@ -142,8 +142,7 @@ int runWavIn(const HeadlessConfig& cfg, const WavOptions& opt)
         if ((pos / chunk) % 10 == 0) PM_LOGI("t=%5.1fs %s", (double) pos / sr, core.statusSummary().c_str());
     }
     const double wall = std::chrono::duration<double>(Clock::now() - wall0).count();
-    std::this_thread::sleep_for(std::chrono::milliseconds(150));
-    core.housekeepingOnce();
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));          // the core's housekeeping thread drains the event queue
     const Timeline tl = core.timeline();
     const DriftReport rep = core.driftReport();
     std::printf("wav-in done: %.1f s of audio in %.2f s wall (%.0fx), final %s %.2f BPM conf %.2f, beats %d, relocks %d, median BPM %.2f\n",
@@ -248,7 +247,6 @@ int runSelftest()
     }
     feed(core, chans, kSr, 256, fastEnd / 2, fastEnd, false, hostBase, false);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    core.housekeepingOnce();
 
     const Timeline tl = core.timeline();
     const double truth = dm.beats[std::min(dm.beats.size() - 1, (size_t) (59.0 / 0.5))].bpm;

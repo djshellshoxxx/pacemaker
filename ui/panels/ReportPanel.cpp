@@ -35,7 +35,7 @@ struct ReportPanel::Impl : juce::Timer {
                 g.drawText("No tempo data yet. Play with the drift log running and the curve appears here.", getLocalBounds(), juce::Justification::centred);
                 return;
             }
-            auto plot = r.reduced(8.0f).withTrimmedLeft(46.0f).withTrimmedBottom(22.0f);
+            auto plot = r.reduced(8.0f).withTrimmedLeft(46.0f).withTrimmedRight(30.0f).withTrimmedBottom(22.0f);
             double lo = 1e9, hi = -1e9, t1 = 0;
             for (auto& p : rep.curve) { lo = std::min(lo, p.second); hi = std::max(hi, p.second); t1 = std::max(t1, p.first); }
             const double t0 = rep.curve.front().first;
@@ -48,7 +48,7 @@ struct ReportPanel::Impl : juce::Timer {
             for (int i = 0; i <= 4; ++i) {
                 const double b = lo + (hi - lo) * i / 4.0;
                 g.setColour(grid); g.drawHorizontalLine((int) Y(b), plot.getX(), plot.getRight());
-                g.setColour(dim); g.drawText(juce::String(b, 0), (int) r.getX() + 4, (int) Y(b) - 9, 40, 18, juce::Justification::centredRight);
+                g.setColour(dim); g.drawText(juce::String((int) std::lround(b)), (int) r.getX() + 4, (int) Y(b) - 9, 38, 18, juce::Justification::centredRight);
             }
             for (int i = 0; i <= 4; ++i) {
                 const double t = t0 + span * i / 4.0;

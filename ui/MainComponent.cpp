@@ -558,7 +558,23 @@ void MainComponent::timerCallback()
     transport_->update();
 }
 
-void MainComponent::paint(juce::Graphics& g) { g.fillAll(bg); }
+void MainComponent::paint(juce::Graphics& g)
+{
+    g.fillAll(bg);
+}
+
+struct MainComponent::Backdrop : juce::Component {
+    juce::Rectangle<int> frame; juce::String title;
+    void paint(juce::Graphics& g) override
+    {
+        g.fillAll(juce::Colours::black.withAlpha(0.6f));
+        g.setColour(panel2); g.fillRoundedRectangle(frame.toFloat(), 8.0f);
+        g.setColour(line); g.drawRoundedRectangle(frame.toFloat(), 8.0f, 1.0f);
+        g.setColour(text); g.setFont(sans(20.0f, true));
+        g.drawText(title, frame.getX() + 16, frame.getY() + 4, frame.getWidth() - 80, 32, juce::Justification::centredLeft);
+    }
+    void mouseDown(const juce::MouseEvent&) override {}
+};
 
 void MainComponent::resized()
 {
@@ -575,6 +591,7 @@ void MainComponent::resized()
     inputs_->setVisible(show); outputs_->setVisible(show); footer_->setVisible(show);
     if (panel_) {
         panelFrame_ = getLocalBounds().reduced(juce::jmax(16, getWidth() / 20), juce::jmax(12, getHeight() / 24));
+        backdrop_->setBounds(getLocalBounds()); backdrop_->frame = panelFrame_; backdrop_->title = panel_->title(); backdrop_->repaint();
         panel_->setBounds(panelFrame_.reduced(2).withTrimmedTop(40));
         closeBtn_.setBounds(panelFrame_.getRight() - 44, panelFrame_.getY() + 4, 36, 32);
     }
@@ -585,6 +602,8 @@ void MainComponent::showPanel(std::unique_ptr<PanelBase> p)
     closePanel();
     panel_ = std::move(p);
     panel_->onClose = [this] { juce::MessageManager::callAsync([sp = juce::Component::SafePointer<MainComponent>(this)] { if (sp) sp->closePanel(); }); };
+    backdrop_ = std::make_unique<Backdrop>();
+    addAndMakeVisible(*backdrop_);
     addAndMakeVisible(*panel_);
     closeBtn_.setVisible(true); closeBtn_.toFront(false);
     resized();
@@ -594,7 +613,7 @@ void MainComponent::showPanel(std::unique_ptr<PanelBase> p)
 void MainComponent::closePanel()
 {
     if (!panel_) return;
-    panel_.reset();
+    panel_.reset(); backdrop_.reset();
     closeBtn_.setVisible(false);
     repaint();
     grabKeyboardFocus();

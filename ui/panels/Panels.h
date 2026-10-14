@@ -7,7 +7,13 @@ namespace pacemaker::ui {
 
 class PanelBase : public juce::Component {
 public:
-    explicit PanelBase(UiContext& c) : ctx(c) {}
+    explicit PanelBase(UiContext& c) : ctx(c) { setOpaque(true); }
+    // Opaque panel surface so the main screen behind it never shows through.
+    void paint(juce::Graphics& g) override
+    {
+        g.fillAll(colours::panel);
+        g.setColour(colours::line); g.drawRect(getLocalBounds(), 1);
+    }
     virtual juce::String title() const = 0;
     std::function<void()> onClose;          // call to dismiss the panel
 protected:

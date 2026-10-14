@@ -79,7 +79,7 @@ public:
     {
         auto* b = own<juce::ToggleButton>(); b->setButtonText(text); b->setToggleState(init, juce::dontSendNotification);
         b->onClick = [b, fn] { fn(b->getToggleState()); };
-        row(label, { { b, text.isEmpty() ? 34 : 260 } }); return *b;
+        row(label, { { b, text.isEmpty() ? 34 : 480 } }); return *b;
     }
     juce::Slider& slider(const juce::String& label, double lo, double hi, double step, double init, const juce::String& suffix,
                          std::function<void(double)> fn, int width = 360)
@@ -96,7 +96,7 @@ public:
     {
         auto* e = own<juce::TextEditor>(); e->setFont(sans(15.0f)); e->setMultiLine(false);
         if (allowed.isNotEmpty() || maxLen > 0) e->setInputRestrictions(maxLen, allowed);
-        e->setText(init, false); e->setIndents(6, 0);
+        e->setText(init, false); e->setIndents(6, 6);
         auto commit = [e, fn] { fn(e->getText()); };
         e->onReturnKey = commit; e->onFocusLost = commit;
         row(label, { { e, width } }); return *e;
