@@ -145,3 +145,18 @@ session-specific).
 - L4. End-to-end: a rendered GMD track played into the standalone through a
   simulated device with known delays; the Sync bus click aligns with the
   ground-truth beat within 2 ms after calibration.
+
+---
+
+## 10. Implementation status
+
+`outputs/include/pacemaker/Calibration.h`: acoustic delay and presets, the
+onset correction formula, the loopback click train and analysis (normalised
+cross-correlation over a 20 ms window, median with 2 sample outlier
+rejection, pass when at least 6 clicks and spread at most 4 samples),
+tap-along median, hardware clock offset and the keyed calibration table.
+Tests L1 to L3 pass at 48 kHz, including -20 dB white noise; truncated or
+silent captures fail cleanly. In the host, the measured input latency and
+mic distance are applied through `ClockMap::setInputCompUs`, which shifts
+the sample-to-host mapping and is equivalent to correcting every onset
+because the tracker is linear in time. L4 needs the real audio path.
