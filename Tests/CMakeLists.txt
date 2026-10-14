@@ -1,7 +1,10 @@
-add_executable(PacemakerTests
-  TestMain.cpp
-  EngineTests.cpp)
+file(GLOB PM_TEST_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+add_executable(PacemakerTests ${PM_TEST_SOURCES})
 target_link_libraries(PacemakerTests PRIVATE pacemaker_engine)
+if(TARGET pacemaker_services)
+  target_link_libraries(PacemakerTests PRIVATE pacemaker_services)
+  target_compile_definitions(PacemakerTests PRIVATE PM_HAVE_SERVICES=1)
+endif()
 if(NOT MSVC)
   target_compile_options(PacemakerTests PRIVATE -Wall -Wextra)
 endif()
