@@ -304,7 +304,7 @@ int runSelftest()
 }
 
 // ====================================================================== --bench
-int runBench(double seconds, int block)
+int runBench(double seconds, int block, const std::string& outputs)
 {
     seconds = std::clamp(seconds, 5.0, 3600.0);
     const double kSr = 48000.0;
@@ -312,24 +312,26 @@ int runBench(double seconds, int block)
     dm.splitRoles = true;
     dm.bpm = 128; dm.walkSigma = 0.2; dm.jitterMs = 4.0; dm.hihat8ths = true;
     dm.silence(1.0);
-    dm.bars((int) std::ceil(seconds / (60.0 / 128.0 * 4.0)) + 1);
+    dm.bars((int) std::ceil((seconds + 12.0) / (60.0 / 128.0 * 4.0)) + 1);      // + 12 s for the real-time part
     dm.addNoiseFloor(1e-4f);
-    const int64_t total = std::min<int64_t>((int64_t) (seconds * kSr), (int64_t) dm.roleAudio[0].size());
+    const int64_t total = std::min<int64_t>((int64_t) ((seconds + 11.0) * kSr), (int64_t) dm.roleAudio[0].size());
+    const int64_t offlineEnd = (int64_t) (seconds * kSr);
 
     Core core;
     SessionSettings ss;
     ss.channels = { { 0, InputRole::Kick, 0.1, false }, { 1, InputRole::Snare, 0.1, false }, { 2, InputRole::HiHat, 1.0, false } };
-    ss.midi.enabled = true;
-    ss.osc.enabled = true; ss.osc.host = "127.0.0.1"; ss.osc.port = 9;      // discard port: real UDP sends, nobody listens
-    ss.sync.enabled = true;
-    ss.link.enabled = linkCompiledIn();
+    auto has = [&](const char* k) { return outputs.find(k) != std::string::npos; };
+    ss.midi.enabled = has("midi");
+    ss.osc.enabled = has("osc"); ss.osc.host = "127.0.0.1"; ss.osc.port = 9;      // discard port: real UDP sends, nobody listens
+    ss.sync.enabled = has("sync");
+    ss.link.enabled = has("link") && linkCompiledIn();
     core.setSession(ss);
     core.setMidiSink(std::make_shared<MemorySink>());
     core.prepare(kSr, block, 3);
     std::vector<const float*> chans { dm.roleAudio[0].data(), dm.roleAudio[1].data(), dm.roleAudio[2].data() };
     std::vector<float> L((size_t) block + 16), R((size_t) block + 16);
 
-    std::printf("pacemaker_headless --bench: %.0f s of 3-channel drums, block %d, outputs: MIDI clock, OSC, Sync%s\n", seconds, block, linkCompiledIn() ? ", Link" : "");
+    std::printf("pacemaker_headless --bench: %.0f s of 3-channel drums, block %d, outputs: %s\n", seconds, block, outputs.c_str());
 
     // A: audio thread cost, faster than real time (this thread only). Outputs are suppressed by the offline flag, so
     // this isolates engine + tracker + sync rendering; it is the number that matters for the audio callback.
@@ -339,7 +341,7 @@ int runBench(double seconds, int block)
     {
         std::vector<const float*> ptrs(3);
         const int64_t hostBase = steadyNowUs();
-        for (int64_t pos = 0; pos + block <= total; pos += block) {
+        for (int64_t pos = 0; pos + block <= offlineEnd; pos += block) {
             for (int c = 0; c < 3; ++c) ptrs[(size_t) c] = chans[(size_t) c] + pos;
             CoreHostInfo h; h.offline = true; h.hostTimeUs = hostBase + (int64_t) std::llround((double) pos * 1e6 / kSr);
             const auto b0 = Clock::now();

@@ -1,7 +1,10 @@
 # Shared GUI (main screen, panels) used by the plugin editor and the standalone window.
 add_library(pacemaker_ui STATIC
   ../ui/MainComponent.cpp
-  ../ui/panels/PanelStubs.cpp)
+  ../ui/panels/SettingsPanel.cpp
+  ../ui/panels/SongMapPanel.cpp
+  ../ui/panels/CalibrationWizard.cpp
+  ../ui/panels/ReportPanel.cpp)
 target_include_directories(pacemaker_ui PUBLIC ../ui ../ui/panels)
 target_link_libraries(pacemaker_ui
   PUBLIC pacemaker_juce juce::juce_gui_basics juce::juce_gui_extra juce::juce_graphics juce::juce_data_structures

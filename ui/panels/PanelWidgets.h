@@ -189,13 +189,6 @@ public:
     void resized() override { juce::Viewport::resized(); relayout(); }
 };
 
-inline juce::Label* makeLabel(juce::Component& parent, const juce::String& text, float size = 15.0f, bool bold = false,
-                              juce::Colour c = colours::text, juce::Justification j = juce::Justification::centredLeft)
-{
-    auto* l = new juce::Label({}, text); l->setFont(sans(size, bold)); l->setColour(juce::Label::textColourId, c); l->setJustification(j);
-    parent.addAndMakeVisible(l); return l;
-}
-
 inline const char* roleLabel(InputRole r)
 {
     switch (r) {

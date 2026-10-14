@@ -46,6 +46,7 @@ void usage()
         "pacemaker_headless " PACEMAKER_VERSION_STRING " - Pacemaker Box service\n\n"
         "usage: pacemaker_headless [--config FILE] [options]\n"
         "  --config FILE        JSON configuration (default %s; built-in defaults when that file is absent)\n"
+        "  --check-config       validate the configuration file and exit (0 = ok, 2 = error)\n"
         "  --list-devices       print audio devices (with channels, rates, buffers) and MIDI ports, then exit\n"
         "  --wav-in FILE        feed the core from a WAV file instead of a sound card\n"
         "      --realtime       pace to the wall clock and drive the real outputs (default: as fast as possible)\n"
@@ -54,6 +55,7 @@ void usage()
         "  --port N             override web.port (0 = no web UI)\n"
         "  --selftest           synthetic drums through the core, checks lock, web API, outputs; exit 0 on success\n"
         "  --bench [SECONDS]    report engine + outputs CPU on this machine (default 60 s of audio)\n"
+        "      --bench-outputs L  outputs enabled during --bench: midi,osc,link,sync (default all)\n"
         "  --block N            block size for --wav-in / --bench (default 256)\n"
         "  --stderr             also log to stderr\n"
         "  --version, --help\n",
@@ -96,12 +98,12 @@ void logRealtimeThreads()
                     const char* rp = std::strrchr(line, ')');          // fields after the comm: state ppid ... policy is field 41 overall
                     int field = 2; long policy = 0, prio = 0;
                     for (const char* p = rp ? rp + 1 : line; *p; ++p) {
-                        if (*p == ' ') { ++field; if (field == 18) prio = std::atol(p + 1); if (field == 41) { policy = std::atol(p + 1); break; } }
+                        if (*p == ' ') { ++field; if (field == 40) prio = std::atol(p + 1); if (field == 41) { policy = std::atol(p + 1); break; } }
                     }
                     if (policy == SCHED_FIFO || policy == SCHED_RR) {
                         std::string comm(line + (std::strchr(line, '(') ? std::strchr(line, '(') - line + 1 : 0));
                         comm = comm.substr(0, comm.find(')'));
-                        found += (found.empty() ? "" : ", ") + comm + "(prio " + std::to_string(-prio - 1) + ")";
+                        found += (found.empty() ? "" : ", ") + comm + "[tid " + e->d_name + "](prio " + std::to_string(prio) + ")";
                     }
                 }
                 std::fclose(f);
@@ -327,7 +329,7 @@ int runService(HeadlessConfig& cfg, int portOverride)
     // Prepare first so the housekeeping / output threads exist before any realtime priority is raised.
     core.prepare(cfg.audio.sampleRate, std::max(cfg.audio.bufferSize, 2048), nIn);
     core.setPluginMidiOutput(false);
-    if (st.session.driftLogEnabled) core.startDriftLog();
+    bool driftStarted = !st.session.driftLogEnabled;      // the drift log file is created when the first music arrives
 
     UserSettingsStore store("Pacemaker");
     UserSettings us = store.load();
@@ -398,9 +400,7 @@ int runService(HeadlessConfig& cfg, int portOverride)
     {
         ScopedRealtime rt(cfg.rtPriority);
         if (cfg.rtPriority > 0) { if (rt.ok) PM_LOGI("realtime priority %d granted for the audio thread", cfg.rtPriority); else PM_LOGW("realtime priority %d refused (set LimitRTPRIO / rtprio in limits.d); running at normal priority", cfg.rtPriority); }
-        std::string err;
-        if (!audio.open(err)) PM_LOGW("audio device unavailable: %s (retrying every 5 s)", err.c_str());
-        audio.tick();       // prime the retry bookkeeping
+        audio.tick();       // first open attempt; failures are logged and retried every 5 s from the main loop
     }
     midiIn.refresh();
     logRealtimeThreads();
@@ -414,6 +414,10 @@ int runService(HeadlessConfig& cfg, int portOverride)
         const auto now = std::chrono::steady_clock::now();
         if (now - lastTick >= std::chrono::seconds(1)) {
             lastTick = now;
+            if (!driftStarted && core.timeline().snap.state != (uint8_t) EngineState::Idle) {
+                driftStarted = true;
+                if (core.startDriftLog()) PM_LOGI("drift log: %s", core.driftLogPath().c_str()); else PM_LOGW("drift log could not be opened");
+            }
             ScopedRealtime rt(cfg.rtPriority);        // device threads (re)created by a reopen inherit the priority
             audio.tick();
         }
@@ -443,8 +447,8 @@ int runService(HeadlessConfig& cfg, int portOverride)
 int main(int argc, char** argv)
 {
     std::string configPath = kDefaultConfig;
-    bool configGiven = false, listOnly = false, selftest = false, bench = false, toStderr = false;
-    double benchSec = 60;
+    bool configGiven = false, checkOnly = false, listOnly = false, selftest = false, bench = false, toStderr = false;
+    double benchSec = 60; std::string benchOutputs = "midi,osc,link,sync";
     int portOverride = -1, block = 256;
     WavOptions wav;
     auto need = [&](int& i) -> const char* {
@@ -456,6 +460,7 @@ int main(int argc, char** argv)
         if (a == "--help" || a == "-h") { usage(); return 0; }
         else if (a == "--version") { std::printf("pacemaker_headless " PACEMAKER_VERSION_STRING "\n"); return 0; }
         else if (a == "--config") { configPath = need(i); configGiven = true; }
+        else if (a == "--check-config") checkOnly = true;
         else if (a == "--list-devices") listOnly = true;
         else if (a == "--wav-in") wav.wav = need(i);
         else if (a == "--realtime") wav.realtime = true;
@@ -464,6 +469,7 @@ int main(int argc, char** argv)
         else if (a == "--port") portOverride = std::atoi(need(i));
         else if (a == "--selftest") selftest = true;
         else if (a == "--bench") { bench = true; if (i + 1 < argc && argv[i + 1][0] != '-') benchSec = std::atof(argv[++i]); }
+        else if (a == "--bench-outputs") benchOutputs = need(i);
         else if (a == "--block") block = std::max(32, std::atoi(need(i)));
         else if (a == "--stderr") toStderr = true;
         else { std::fprintf(stderr, "pacemaker_headless: unknown option '%s' (see --help)\n", a.c_str()); return 2; }
@@ -480,7 +486,7 @@ int main(int argc, char** argv)
 
     if (listOnly) return listDevices();
     if (selftest) { Log::get().open("", 0, 1, true); return runSelftest(); }
-    if (bench) { Log::get().open("", 0, 1, true); return runBench(benchSec, block); }
+    if (bench) { Log::get().open("", 0, 1, true); return runBench(benchSec, block, benchOutputs); }
 
     HeadlessConfig cfg;
     std::string err;
@@ -489,6 +495,13 @@ int main(int argc, char** argv)
         if (!HeadlessConfig::load(configPath, cfg, err)) { std::fprintf(stderr, "pacemaker_headless: %s\n", err.c_str()); return 2; }
     } else {
         std::fprintf(stderr, "pacemaker_headless: %s not found, using built-in defaults\n", configPath.c_str());
+    }
+    if (checkOnly) {
+        std::printf("config ok: audio %s %.0f Hz buffer %d, %zu input mapping(s), web %s:%d%s, midi clock out '%s', gpio %s, oled %s, state file '%s'\n",
+                    cfg.audio.deviceType.empty() ? "default" : cfg.audio.deviceType.c_str(), cfg.audio.sampleRate, cfg.audio.bufferSize,
+                    cfg.audio.inputs.size(), cfg.web.bind.c_str(), cfg.web.port, cfg.web.token.empty() ? "" : " (token)", cfg.midi.clockOut.c_str(),
+                    cfg.gpio.enabled ? "on" : "off", cfg.oled.enabled ? "on" : "off", cfg.stateFile.c_str());
+        return 0;
     }
     Log::get().open(cfg.log.file, (long) cfg.log.maxKB * 1024, cfg.log.keep, toStderr || !wav.wav.empty() || cfg.log.file.empty());
 

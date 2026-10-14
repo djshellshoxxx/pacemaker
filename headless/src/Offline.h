@@ -19,6 +19,7 @@ struct WavOptions {
 
 int runWavIn(const HeadlessConfig& cfg, const WavOptions& opt);
 int runSelftest();
-int runBench(double seconds, int block);
+// outputs: comma list of midi,osc,link,sync (default all) to see what each output costs.
+int runBench(double seconds, int block, const std::string& outputs = "midi,osc,link,sync");
 
 } // namespace pmhl
