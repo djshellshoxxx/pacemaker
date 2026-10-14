@@ -551,7 +551,8 @@ TEST_CASE(Web_BadInputGivesClientErrorsAndNeverKillsTheServer)
         auto r = c.Get(u);
         CHECK_MSG(!r || r->status < 500, std::string("GET ") + u);
     }
-    auto del = rig.cli->Delete("/api/state");
+    httplib::Client dc("127.0.0.1", rig.web->port());
+    auto del = dc.Delete("/api/state");
     CHECK(del && del->status >= 400 && del->status < 500);
     // still alive and consistent
     int code = 0;

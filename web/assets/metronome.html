@@ -92,26 +92,25 @@
 
   // ---- state shared between the network and the render loop
   let st = null;              // latest status
-  let anchor = null;          // { t: performance.now() of the next beat, beat, bar, period }
+  let anchor = null;          // next unfired beat: { t: performance.now() time, n: absolute beat number, period, bpb }
   let lastFire = { t: 0, one: false, period: 500 };
-  let firedId = '';
-  let lastMsg = 0, live = false, es = null, pollT = null;
+  let lastMsg = 0, live = false, es = null;
 
+  // Beats are counted on one absolute axis (n = bar * beatsPerBar + beat - 1) so the local schedule can be reconciled with
+  // every server update without skipping or doubling a beat, and follows the server when it renumbers the bar.
   function setAnchor(s) {
     const now = performance.now();
     if (!s.tempo.valid || s.next.inMs === null || s.stateId === 0) { anchor = null; return; }
-    const per = s.tempo.periodMs;
-    const t = now + s.next.inMs;
-    const id = s.next.bar + ':' + s.next.beat;
-    if (anchor && anchor.id === id) {
-      // Same beat as predicted: low-pass the arrival time so network jitter does not make the flash wobble.
-      anchor.t += 0.35 * (t - anchor.t); anchor.period = per;
-    } else if (anchor && Math.abs(anchor.t - t) < 0.5 * per && anchor.id !== id && firedId === id) {
-      // The server already advanced to a beat we fired locally; keep our schedule.
+    const per = s.tempo.periodMs, bpb = s.beatsPerBar;
+    const ts = now + s.next.inMs, ns = s.next.bar * bpb + (s.next.beat - 1);
+    if (anchor && anchor.bpb === bpb) {
+      const j = Math.round((anchor.t - ts) / per);        // our next beat is the server's beat ns + j
+      const d = ts + j * per - anchor.t;                  // how far the server's time for that beat is from ours
+      anchor.t += Math.abs(d) > 0.25 * per ? d : 0.35 * d; // follow phase jumps at once, low-pass the network jitter
+      anchor.n = ns + j; anchor.period = per;
     } else {
-      anchor = { t, beat: s.next.beat, bar: s.next.bar, period: per, id };
+      anchor = { t: ts, n: ns, period: per, bpb };
     }
-    anchor.bpb = s.beatsPerBar;
   }
 
   function onStatus(s) {
@@ -147,12 +146,10 @@
 
   // ---- render loop with local beat extrapolation
   const flash = $('flash');
-  function fire(beat, bar, per) {
-    const one = beat === 1;
+  function fire(n, bpb, per) {
+    const bar = Math.floor(n / bpb), beat = n - bar * bpb + 1, one = beat === 1;
     lastFire = { t: performance.now(), one, period: per };
-    firedId = bar + ':' + beat;
-    $('pos').innerHTML = '';
-    $('pos').appendChild(document.createTextNode(bar + ':' + beat));
+    $('pos').textContent = bar + ':' + beat;
     const dots = $('dots').children;
     for (let i = 0; i < dots.length; ++i) dots[i].className = i + 1 === beat ? 'on' + (i === 0 ? ' one' : '') : (i === 0 ? 'one' : '');
     flash.className = one ? 'one' : '';
@@ -164,10 +161,8 @@
     if (anchor) {
       let guard = 0;
       while (now >= anchor.t + cfg.off && guard++ < 4) {
-        fire(anchor.beat, anchor.bar, anchor.period);
-        anchor.t += anchor.period;
-        anchor.beat++; if (anchor.beat > anchor.bpb) { anchor.beat = 1; anchor.bar++; }
-        anchor.id = anchor.bar + ':' + anchor.beat;
+        fire(anchor.n, anchor.bpb, anchor.period);
+        anchor.t += anchor.period; anchor.n++;
       }
       if (guard >= 4) anchor.t = now + anchor.period;
     }
