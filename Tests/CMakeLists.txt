@@ -9,3 +9,12 @@ if(NOT MSVC)
   target_compile_options(PacemakerTests PRIVATE -Wall -Wextra)
 endif()
 add_test(NAME PacemakerTests COMMAND PacemakerTests)
+
+# Web UI tests (Tests/WebTests.cpp): the web library is optional and is pulled in from web/ when present.
+if(TARGET pacemaker_services AND NOT TARGET pacemaker_web AND EXISTS ${PROJECT_SOURCE_DIR}/web/CMakeLists.txt)
+  add_subdirectory(${PROJECT_SOURCE_DIR}/web ${PROJECT_BINARY_DIR}/web)
+endif()
+if(TARGET pacemaker_web)
+  target_link_libraries(PacemakerTests PRIVATE pacemaker_web)
+  target_compile_definitions(PacemakerTests PRIVATE PM_HAVE_WEB=1)
+endif()

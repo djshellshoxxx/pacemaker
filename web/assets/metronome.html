@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#000000">
+<title>Pacemaker Metronome</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<style>
+  :root { --off: #05070a; --beat: #1fbf63; --one: #ff3d9a; --text: #f4f8fb; --dim: #b4c0cc; --warn: #ffb020; --bad: #ff5c5c; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--off); color: var(--text); font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; -webkit-user-select: none; user-select: none; }
+  #flash { position: fixed; inset: 0; background: var(--beat); opacity: 0; pointer-events: none; }
+  #flash.one { background: var(--one); }
+  main { position: relative; height: 100%; display: grid; grid-template-rows: auto 1fr auto; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+  .top, .bot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .chip { font-weight: 800; letter-spacing: .08em; font-size: 1.25rem; padding: 4px 14px; border: 3px solid var(--dim); border-radius: 8px; background: rgba(0,0,0,.55); }
+  .chip.LOCKED { border-color: var(--beat); color: var(--beat); } .chip.HOLD, .chip.CHASE { border-color: var(--warn); color: var(--warn); }
+  .chip.LOCKING, .chip.COUNT-IN { border-color: #5cc8ff; color: #5cc8ff; } .chip.offline { border-color: var(--bad); color: var(--bad); }
+  .centre { display: grid; place-items: center; text-align: center; text-shadow: 0 0 12px #000, 0 0 3px #000; }
+  #pos { font-size: min(34vw, 48vh); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  #pos small { font-size: .35em; color: var(--dim); }
+  #bpm { font-size: min(14vw, 16vh); font-weight: 700; font-variant-numeric: tabular-nums; }
+  #bpm small { font-size: .3em; color: var(--dim); font-weight: 500; }
+  #dots { display: flex; gap: 12px; justify-content: center; margin-top: 12px; }
+  #dots i { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--dim); display: block; background: rgba(0,0,0,.5); }
+  #dots i.on { background: var(--beat); border-color: var(--beat); } #dots i.on.one { background: var(--one); border-color: var(--one); }
+  button { min-height: 48px; min-width: 48px; padding: 6px 16px; font: inherit; font-weight: 650; color: var(--text); background: rgba(0,0,0,.6); border: 2px solid var(--dim); border-radius: 10px; }
+  button:focus-visible, input:focus-visible { outline: 3px solid #ffe14d; outline-offset: 2px; }
+  #msg { font-size: 1.125rem; color: var(--warn); min-height: 1.5em; text-align: center; }
+  #opts { display: none; background: rgba(0,0,0,.85); border: 2px solid var(--dim); border-radius: 10px; padding: 12px; gap: 12px; }
+  #opts.show { display: grid; }
+  #opts label { display: grid; gap: 4px; color: var(--dim); }
+  #opts input[type=range] { width: 100%; min-height: 32px; }
+  body.reduced #flash { transition: none; }
+  body.dim #flash { filter: brightness(.45); }
+</style>
+</head>
+<body>
+<div id="flash" aria-hidden="true"></div>
+<main>
+  <div class="top">
+    <span id="chip" class="chip offline" role="status">CONNECTING</span>
+    <span id="song" aria-live="polite"></span>
+    <span><button id="bOpt" aria-expanded="false" aria-controls="opts">Options</button> <button id="bFull">Full screen</button></span>
+  </div>
+  <div class="centre" role="img" aria-label="Beat display">
+    <div>
+      <div id="pos" aria-live="off">-</div>
+      <div id="dots"></div>
+      <div id="bpm">--<small> BPM</small></div>
+    </div>
+  </div>
+  <div>
+    <p id="msg" role="status"></p>
+    <div id="opts">
+      <label>Flash offset: <span id="offV">0</span> ms (+ delays the flash; compensate for a slow phone screen)
+        <input type="range" id="off" min="-100" max="150" step="5" value="0"></label>
+      <label>Flash length: <span id="lenV">35</span> % of a beat
+        <input type="range" id="len" min="10" max="80" step="5" value="35"></label>
+      <label><span><input type="checkbox" id="dim"> Dim flash (dark rooms)</span></label>
+      <label><span><input type="checkbox" id="vib"> Vibrate on beats (Android)</span></label>
+    </div>
+    <div class="bot"><span id="wl" class="note"></span><span id="ver">Pacemaker</span></div>
+  </div>
+</main>
+<script>
+'use strict';
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const q = new URLSearchParams(location.search);
+  let token = q.get('token') || '';
+  try { if (token) localStorage.setItem('pmToken', token); else token = localStorage.getItem('pmToken') || ''; } catch (e) {}
+  const tq = token ? '?token=' + encodeURIComponent(token) : '';
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('pmMetro.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('pmMetro.' + k, JSON.stringify(v)); } catch (e) {} }
+  };
+  const cfg = { off: store.get('off', 0), len: store.get('len', 35), dim: store.get('dim', false), vib: store.get('vib', false) };
+  $('off').value = cfg.off; $('len').value = cfg.len; $('dim').checked = cfg.dim; $('vib').checked = cfg.vib;
+  const syncCfg = () => { $('offV').textContent = cfg.off; $('lenV').textContent = cfg.len; document.body.classList.toggle('dim', cfg.dim); };
+  syncCfg();
+  $('off').oninput = (e) => { cfg.off = +e.target.value; store.set('off', cfg.off); syncCfg(); };
+  $('len').oninput = (e) => { cfg.len = +e.target.value; store.set('len', cfg.len); syncCfg(); };
+  $('dim').onchange = (e) => { cfg.dim = e.target.checked; store.set('dim', cfg.dim); syncCfg(); };
+  $('vib').onchange = (e) => { cfg.vib = e.target.checked; store.set('vib', cfg.vib); };
+  $('bOpt').onclick = () => { const s = $('opts').classList.toggle('show'); $('bOpt').setAttribute('aria-expanded', s); };
+  $('bFull').onclick = () => { const d = document.documentElement; if (document.fullscreenElement) document.exitFullscreen(); else if (d.requestFullscreen) d.requestFullscreen().catch(() => {}); };
+  const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduced) document.body.classList.add('reduced');
+
+  // ---- state shared between the network and the render loop
+  let st = null;              // latest status
+  let anchor = null;          // { t: performance.now() of the next beat, beat, bar, period }
+  let lastFire = { t: 0, one: false, period: 500 };
+  let firedId = '';
+  let lastMsg = 0, live = false, es = null, pollT = null;
+
+  function setAnchor(s) {
+    const now = performance.now();
+    if (!s.tempo.valid || s.next.inMs === null || s.stateId === 0) { anchor = null; return; }
+    const per = s.tempo.periodMs;
+    const t = now + s.next.inMs;
+    const id = s.next.bar + ':' + s.next.beat;
+    if (anchor && anchor.id === id) {
+      // Same beat as predicted: low-pass the arrival time so network jitter does not make the flash wobble.
+      anchor.t += 0.35 * (t - anchor.t); anchor.period = per;
+    } else if (anchor && Math.abs(anchor.t - t) < 0.5 * per && anchor.id !== id && firedId === id) {
+      // The server already advanced to a beat we fired locally; keep our schedule.
+    } else {
+      anchor = { t, beat: s.next.beat, bar: s.next.bar, period: per, id };
+    }
+    anchor.bpb = s.beatsPerBar;
+  }
+
+  function onStatus(s) {
+    st = s; lastMsg = performance.now(); setAnchor(s);
+    const chip = $('chip'); chip.textContent = s.deviceLost ? 'AUDIO LOST' : s.state; chip.className = 'chip ' + (s.deviceLost ? 'offline' : s.state);
+    $('song').textContent = s.song.name || '';
+    $('bpm').firstChild.nodeValue = s.tempo.valid && s.stateId !== 0 ? s.tempo.bpm.toFixed(1) : '--';
+    const d = $('dots'); while (d.children.length < s.beatsPerBar) d.appendChild(document.createElement('i')); while (d.children.length > s.beatsPerBar) d.removeChild(d.lastChild);
+    $('msg').textContent = s.deviceLost ? 'Audio device lost - holding tempo' : (s.stateId === 0 ? 'Waiting for the band...' : (s.state === 'HOLD' ? 'Holding tempo' : ''));
+  }
+
+  // ---- connection: SSE with polling fallback
+  function open() {
+    try { es = new EventSource('/api/events' + tq); } catch (e) { es = null; }
+    if (es) {
+      es.addEventListener('status', (e) => { live = true; onStatus(JSON.parse(e.data)); });
+      es.onerror = () => { live = false; };
+    }
+  }
+  async function poll() {
+    if (live && performance.now() - lastMsg < 1500) return;
+    try {
+      const t0 = performance.now();
+      const r = await fetch('/api/status', { headers: token ? { 'X-Pacemaker-Token': token } : {} });
+      if (r.status === 401) { $('msg').textContent = 'Access token needed: open this page with ?token=...'; return; }
+      const s = await r.json();
+      // Compensate half the round trip so the polled schedule is not late.
+      s.next.inMs = s.next.inMs === null ? null : s.next.inMs - (performance.now() - t0) / 2;
+      onStatus(s);
+    } catch (e) { $('chip').textContent = 'OFFLINE'; $('chip').className = 'chip offline'; }
+  }
+  open(); setInterval(poll, 400);
+
+  // ---- render loop with local beat extrapolation
+  const flash = $('flash');
+  function fire(beat, bar, per) {
+    const one = beat === 1;
+    lastFire = { t: performance.now(), one, period: per };
+    firedId = bar + ':' + beat;
+    $('pos').innerHTML = '';
+    $('pos').appendChild(document.createTextNode(bar + ':' + beat));
+    const dots = $('dots').children;
+    for (let i = 0; i < dots.length; ++i) dots[i].className = i + 1 === beat ? 'on' + (i === 0 ? ' one' : '') : (i === 0 ? 'one' : '');
+    flash.className = one ? 'one' : '';
+    if (cfg.vib && navigator.vibrate) navigator.vibrate(one ? 60 : 25);
+  }
+  function frame() {
+    const now = performance.now();
+    if (anchor && now - lastMsg > 3000) anchor = null;           // stale: stop inventing beats
+    if (anchor) {
+      let guard = 0;
+      while (now >= anchor.t + cfg.off && guard++ < 4) {
+        fire(anchor.beat, anchor.bar, anchor.period);
+        anchor.t += anchor.period;
+        anchor.beat++; if (anchor.beat > anchor.bpb) { anchor.beat = 1; anchor.bar++; }
+        anchor.id = anchor.bar + ':' + anchor.beat;
+      }
+      if (guard >= 4) anchor.t = now + anchor.period;
+    }
+    // flash envelope
+    const dur = Math.min(300, lastFire.period * cfg.len / 100);
+    const k = lastFire.t ? 1 - (now - lastFire.t) / dur : 0;
+    flash.style.opacity = reduced ? (k > 0 ? 0.55 : 0) : String(Math.max(0, k) * (lastFire.one ? 1 : 0.8));
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ---- keep the screen awake
+  let lock = null;
+  async function wake() {
+    if (!('wakeLock' in navigator)) { $('wl').textContent = 'Screen may sleep (wake lock unsupported)'; return; }
+    try {
+      lock = await navigator.wakeLock.request('screen'); $('wl').textContent = 'Screen kept awake';
+      lock.addEventListener('release', () => { $('wl').textContent = ''; });
+    } catch (e) { $('wl').textContent = 'Tap the screen to keep it awake'; }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
+  document.addEventListener('pointerdown', () => { if (!lock || lock.released) wake(); }, { passive: true });
+  wake();
+})();
+</script>
+</body>
+</html>

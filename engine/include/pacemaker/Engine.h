@@ -41,6 +41,21 @@ public:
     void doubleTime();
     void setFollow(bool follow);
 
+    // Learn mode (ES-01 section 7). learnPattern() records the kick/snare/strong histogram per bar
+    // position over the next 2 bars; the first beat after the call (or the first beat 1 of a
+    // count-in) is position 1. On completion the learned table is installed as the active bar
+    // pattern. learning() is true while armed or recording.
+    void learnPattern();
+    bool learning() const;
+    // Control thread. Copies the most recent learned table; false if none exists yet.
+    bool getLearnedPattern(LearnedPattern& out) const;
+    // Increments each time Learn mode completes (lets the host notice a new table to store).
+    uint32_t learnedRevision() const;
+    // Control thread, between hosts calls (not re-entrant with itself). Installs a stored table
+    // at the next hop boundary. Returns false if beats != config().meter.beatsPerBar or a previous
+    // install has not been consumed yet.
+    bool setLearnedPattern(const LearnedPattern& p);
+
     // Constant front-end delay subtracted from onset timestamps (ES-01 section 4).
     int detectorDelaySamples() const;
     int hopSize() const;

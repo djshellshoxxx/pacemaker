@@ -3,6 +3,7 @@
 #pragma once
 #include <cmath>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace drums {
@@ -23,6 +24,11 @@ public:
     double sr;
     Rng rng;
     std::vector<float> audio;
+    // When splitRoles is set (before rendering), kick / snare / everything else (hi-hat, clicks) are
+    // written to roleAudio[0] / [1] / [2] instead of `audio`, so tests can feed a Kick, a Snare and a
+    // HiHat input role and get deterministic band tags.
+    bool splitRoles = false;
+    std::vector<float> roleAudio[3];
     std::vector<Beat> beats;
     double bpm = 120.0, time = 0.0;
     double walkSigma = 0.3, jitterMs = 10.0;
@@ -68,6 +74,30 @@ public:
         ensure(time);
     }
 
+    // Render bars from a per-beat hit string: pat[pos-1] holds 'k' (kick), 's' (snare), 'h' (hi-hat), 'c' (crash accent),
+    // e.g. {"kh", "h", "sh", "h"}. Same tempo walk and jitter as bars(). Additive helper for
+    // meters and feels the default bars() cannot express (5/4, 7/8, half-time).
+    void barsPattern(int n, const std::vector<std::string>& pat)
+    {
+        beatsPerBar = (int) pat.size();
+        const int total = n * beatsPerBar;
+        for (int k = 0; k < total; ++k) {
+            const int pos = k % beatsPerBar + 1;
+            const double period = 60.0 / bpm;
+            const double jitter = jitterMs * 1e-3 * rng.gauss();
+            beats.push_back({ time, time + jitter, pos, bpm, true });
+            for (char c : pat[(size_t) pos - 1]) {
+                if (c == 'k') kick(time + jitter, 1.0f);
+                else if (c == 's') snare(time + jitter, 0.9f);
+                else if (c == 'h') hihat(time + jitter, 0.5f);
+                else if (c == 'c') crash(time + jitter, 1.0f);
+            }
+            time += period;
+            if (walkSigma > 0.0) bpm += walkSigma * rng.gauss();
+        }
+        ensure(time);
+    }
+
     // Linear fade over the last 10 ms so truncation does not add a click.
     static double fade(int i, int n, double sr) { const int f = (int) (0.010 * sr); return i >= n - f ? (double) (n - i) / f : 1.0; }
 
@@ -81,7 +111,7 @@ public:
             const double x = (double) i / sr;
             const double f = 60.0 + 40.0 * std::exp(-x / 0.01);
             ph += 2.0 * M_PI * f / sr;
-            audio[(size_t) (s0 + i)] += vel * 0.8f * (float) (std::sin(ph) * std::exp(-x / 0.025) * fade(i, n, sr));
+            buf(0)[(size_t) (s0 + i)] += vel * 0.8f * (float) (std::sin(ph) * std::exp(-x / 0.025) * fade(i, n, sr));
         }
     }
     void snare(double t, float vel)
@@ -99,7 +129,7 @@ public:
             const double y = noise - a1 * y1 - a2 * y2;
             y2 = y1; y1 = y;
             const double body = 0.4 * std::sin(2.0 * M_PI * 200.0 * x) * std::exp(-x / 0.03);
-            audio[(size_t) (s0 + i)] += vel * (float) ((0.15 * y + body) * std::exp(-x / 0.02) * fade(i, n, sr));
+            buf(1)[(size_t) (s0 + i)] += vel * (float) ((0.15 * y + body) * std::exp(-x / 0.02) * fade(i, n, sr));
         }
     }
     void hihat(double t, float vel)
@@ -112,23 +142,35 @@ public:
             const double x = (double) i / sr;
             const double noise = rng.uniform() * 2.0 - 1.0;
             const double hp = noise - prev; prev = noise;   // crude high-pass
-            audio[(size_t) (s0 + i)] += vel * 0.25f * (float) (hp * std::exp(-x / 0.006) * fade(i, n, sr));
+            buf(2)[(size_t) (s0 + i)] += vel * 0.25f * (float) (hp * std::exp(-x / 0.006) * fade(i, n, sr));
+        }
+    }
+    // Crash cymbal: long broadband noise burst (used as the bar-1 accent that makes onsets "strong").
+    void crash(double t, float vel)
+    {
+        const int n = (int) (0.400 * sr);
+        const int64_t s0 = (int64_t) (t * sr);
+        ensure(t + 0.41);
+        for (int i = 0; i < n; ++i) {
+            const double x = (double) i / sr;
+            buf(2)[(size_t) (s0 + i)] += vel * 0.5f * (float) ((rng.uniform() * 2.0 - 1.0) * std::exp(-x / 0.12) * fade(i, n, sr));
         }
     }
     void click(double t, float vel)
     {
         const int n = (int) (0.012 * sr);
         const int64_t s0 = (int64_t) (t * sr);
-        ensure(t + 0.01);
+        ensure(t + 0.02);
         for (int i = 0; i < n; ++i) {
             const double x = (double) i / sr;
-            audio[(size_t) (s0 + i)] += vel * (float) (std::sin(2.0 * M_PI * 3000.0 * x) * std::exp(-x / 0.001)
+            buf(2)[(size_t) (s0 + i)] += vel * (float) (std::sin(2.0 * M_PI * 3000.0 * x) * std::exp(-x / 0.001)
                                                        + 0.3 * (rng.uniform() * 2.0 - 1.0) * std::exp(-x / 0.002)) * fade(i, n, sr);
         }
     }
     void addNoiseFloor(float amp = 1e-4f)
     {
         for (auto& v : audio) v += amp * (float) (rng.uniform() * 2.0 - 1.0);
+        for (auto& r : roleAudio) for (auto& v : r) v += amp * (float) (rng.uniform() * 2.0 - 1.0);
     }
 
 private:
@@ -136,7 +178,9 @@ private:
     {
         const size_t need = (size_t) (seconds * sr) + 1;
         if (audio.size() < need) audio.resize(need, 0.0f);
+        if (splitRoles) for (auto& r : roleAudio) if (r.size() < need) r.resize(need, 0.0f);
     }
+    std::vector<float>& buf(int role) { return splitRoles ? roleAudio[role] : audio; }
 };
 
 } // namespace drums

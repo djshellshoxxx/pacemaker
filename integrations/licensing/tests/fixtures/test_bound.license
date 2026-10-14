@@ -1,0 +1,11 @@
+PACEMAKER-LICENSE-1
+product=pacemaker
+tier=full
+licensee=Test Licensee
+email=test@example.invalid
+order=PM-TEST-0001
+issued=2026-01-01
+machines=3
+major=1
+bind=00112233445566778899aabbccddeeff
+signature=__oJX0mYFwn2mQNl50ap0x6Ei5EVniZQgo0fYzXhNpTctecp_jCPdTKxZG-zak6TdvMIHAwDMyqi6DMos2EqAQ
