@@ -38,3 +38,11 @@ Logic, Cubase, Bitwig, Reaper, QLab or hardware rigs. Pacemaker adds bar
 and downbeat awareness, multi-input fusion, confidence-gated hold and
 chase behaviour, simultaneous outputs, and a one-button latency
 calibration. See `docs/DIFFERENTIATION.md`.
+
+## Verified build and test status
+
+On Linux, the root CMake configuration (`-G Ninja` or the default generator) configures, builds and passes its single CTest test (`ctest --test-dir build`). The plugin, appliance and CLI-to-DAW paths are not part of this build.
+
+## Wiki
+
+Wiki source pages are in [docs/wiki/](docs/wiki/Home.md): developer guide, architecture summary and codebase map. The specifications in `docs/specs/` remain the authority.
