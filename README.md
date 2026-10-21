@@ -9,8 +9,7 @@ clock**, **OSC** and an **audio sync pulse**, so backing tracks, hardware
 sequencers, lights and video follow the musicians instead of the musicians
 following a click.
 
-It ships as a VST3 / CLAP / AU / LV2 plugin, a standalone app, and later a
-headless Raspberry Pi appliance. JUCE 8, C++17, CMake, same toolchain as
+The intended deliverables are VST3 / CLAP / AU / LV2 plugins, a standalone application and, later, a headless Raspberry Pi appliance. **These formats are planned, not currently shipped.** The current root CMake configuration builds the C++ engine, offline evaluation CLI and tests. JUCE 8, C++17, CMake, same toolchain as
 [Vivisect](https://github.com/djshellshoxxx/faultline).
 
 Status: engine core (ES-01) implemented as a plain C++17 library with tests and an offline evaluation CLI; no plugin yet.
