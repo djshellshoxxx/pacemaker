@@ -1,0 +1,13 @@
+[Unit]
+Description=Pacemaker Box first boot: data partition, hotspot, read-only root
+ConditionPathExists=!/var/lib/pacemaker/.firstboot-done
+After=local-fs.target NetworkManager.service
+Before=pacemaker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/share/pacemaker/pacemaker-firstboot.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,7 @@
+# Fetched or recorded audio is never committed (RS-05 section 2).
+gmd/
+own/
+*.wav
+*.zip
+!README.md
+!manifest.json

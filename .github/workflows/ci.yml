@@ -2,19 +2,100 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'claude/**']
   pull_request:
 
+env:
+  JUCE_TAG: "8.0.15"
+
 jobs:
-  linux:
+  engine-linux:
+    name: Engine, services and tests (Linux, Link ${{ matrix.link }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        link: ["ON", "OFF"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ninja and Python deps
+        run: |
+          sudo apt-get update && sudo apt-get install -y ninja-build
+          python3 -m pip install numpy mir_eval
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DPACEMAKER_WITH_LINK=${{ matrix.link }}
+      - name: Build
+        run: cmake --build build
+      - name: Unit tests
+        run: ctest --test-dir build --output-on-failure
+      - name: Engine regression on the synthetic corpus (T1-T3, T5, T9 thresholds)
+        run: python3 tools/eval/run_corpus.py --eval build/tools/eval/pacemaker_eval
+
+  plugin-linux:
+    name: Plugin, standalone, headless (Linux)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build and validation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libasound2-dev libfreetype-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev \
+            libxext-dev libgl1-mesa-dev libfontconfig1-dev xvfb lv2lint lilv-utils unzip curl
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DPACEMAKER_BUILD_PLUGIN=ON -DPACEMAKER_BUILD_HEADLESS=ON -DJUCE_TAG=$JUCE_TAG
+      - name: Build
+        run: cmake --build build
+      - name: Unit tests and plugin tests (A3 bus matrix, A4 state)
+        run: xvfb-run -a ctest --test-dir build --output-on-failure
+      - name: Headless self test
+        run: xvfb-run -a build/headless/pacemaker_headless --selftest
+      - name: pluginval (strictness 5) on the VST3
+        run: |
+          curl -L -o pluginval.zip https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Linux.zip
+          unzip -q pluginval.zip
+          xvfb-run -a ./pluginval --strictness-level 5 --validate-in-process --skip-gui-tests build/plugin/PacemakerPlugin_artefacts/Release/VST3/Pacemaker.vst3
+      - name: lv2lint
+        continue-on-error: true
+        run: |
+          export LV2_PATH=$PWD/build/plugin/PacemakerPlugin_artefacts/Release/LV2
+          lv2lint -Mpack -I "$LV2_PATH/Pacemaker.lv2" https://github.com/djshellshoxxx/pacemaker
+      - name: clap-validator
+        continue-on-error: true
+        run: |
+          curl -L -o clap-validator.tar.gz https://github.com/free-audio/clap-validator/releases/latest/download/clap-validator-linux.tar.gz || exit 0
+          tar xzf clap-validator.tar.gz || exit 0
+          ./clap-validator validate build/plugin/PacemakerPlugin_artefacts/Release/CLAP/Pacemaker.clap
+      - name: UI screenshot (demo mode)
+        run: xvfb-run -a -s "-screen 0 1280x900x24" build/plugin/standalone/PacemakerStandalone_artefacts/Release/Pacemaker --demo --screenshot ui-main.png --size 1040x740
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshot
+          path: ui-main.png
+
+  windows:
+    name: Windows x64 (MSVC)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DPACEMAKER_BUILD_PLUGIN=ON -DJUCE_TAG=$env:JUCE_TAG
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Unit tests (Windows MIDI jitter limit 1.5 ms)
+        env:
+          PM_JITTER_LIMIT_MS: "1.5"
+        run: ctest --test-dir build -C Release --output-on-failure
+
+  macos:
+    name: macOS universal
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
       - name: Install Ninja
-        run: sudo apt-get update && sudo apt-get install -y ninja-build
+        run: brew install ninja
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DPACEMAKER_BUILD_PLUGIN=ON -DJUCE_TAG=$JUCE_TAG "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
       - name: Build
         run: cmake --build build
-      - name: Test
+      - name: Unit tests
         run: ctest --test-dir build --output-on-failure

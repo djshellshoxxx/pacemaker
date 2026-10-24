@@ -1,0 +1,6 @@
+# Private signing keys must never be committed.
+*.key
+*.priv
+*.seed
+private*
+secret*

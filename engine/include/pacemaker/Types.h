@@ -7,7 +7,10 @@ namespace pacemaker {
 enum class InputRole : uint8_t { Any, Kick, Snare, HiHat, Overhead, Trigger };
 enum class ProfileType : uint8_t { Stage, Rehearsal, Custom };
 enum class EngineState : uint8_t { Idle, CountIn, Locking, Locked, Hold, Chase };
-enum class BarPattern : uint8_t { Rock44, HalfTime44, FourOnFloor44, Waltz34, Compound68 };
+// Quintuple54 is 5/4 grouped 3+2; Septuple78 is 7/8 with the grouping chosen by
+// EngineConfig::grouping78; Learned uses EngineConfig::learnedPattern (or Engine::setLearnedPattern).
+enum class BarPattern : uint8_t { Rock44, HalfTime44, FourOnFloor44, Waltz34, Compound68, Quintuple54, Septuple78, Learned };
+enum class Grouping78 : uint8_t { G223, G322, G232 };   // 7/8 as 2+2+3, 3+2+2, 2+3+2
 
 // Band tags are bit flags so that merged onsets can carry several.
 namespace BandTag {
@@ -46,6 +49,13 @@ struct FollowProfile {
 
 constexpr int kMaxRoles = 4;
 
+// Bar pattern recorded by Learn mode (ES-01 section 7): per bar position scores in about [-0.5, 1]
+// as used by the bar tracker. Plain data so the host can store it with the session.
+struct LearnedPattern {
+    int beats = 0;                // 0 = no pattern; otherwise 1..16 and must equal the meter's beatsPerBar
+    float kick[16] {}, snare[16] {}, strong[16] {};
+};
+
 struct EngineConfig {
     double sampleRate = 48000.0;  // 44100 .. 192000
     int maxBlockSize = 2048;
@@ -57,6 +67,9 @@ struct EngineConfig {
     FollowProfile profile;
     BarPattern pattern = BarPattern::Rock44;
     float sensitivity = 0.5f;     // 0..1, scales the peak-picking delta
+    Grouping78 grouping78 = Grouping78::G223;   // used by BarPattern::Septuple78
+    LearnedPattern learnedPattern;              // used by BarPattern::Learned
+    bool autoOctave = false;      // switch octave when ambiguity persists (ES-01 section 5)
 };
 
 struct DiscreteOnset {

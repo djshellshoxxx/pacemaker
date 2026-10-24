@@ -1,0 +1,117 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+env:
+  JUCE_TAG: "8.0.15"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DPACEMAKER_BUILD_PLUGIN=ON -DJUCE_TAG=$env:JUCE_TAG
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Test
+        env:
+          PM_JITTER_LIMIT_MS: "1.5"
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: pluginval (strictness 5)
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Windows.zip -OutFile pluginval.zip
+          Expand-Archive pluginval.zip -DestinationPath pv
+          & .\pv\pluginval.exe --strictness-level 5 --validate-in-process --skip-gui-tests build\plugin\PacemakerPlugin_artefacts\Release\VST3\Pacemaker.vst3
+      - name: Package
+        shell: pwsh
+        run: |
+          $out = "Pacemaker-windows-x64"
+          New-Item -ItemType Directory -Force $out | Out-Null
+          Copy-Item -Recurse build\plugin\PacemakerPlugin_artefacts\Release\VST3\Pacemaker.vst3 $out\
+          Copy-Item build\plugin\PacemakerPlugin_artefacts\Release\CLAP\Pacemaker.clap $out\ -ErrorAction SilentlyContinue
+          Copy-Item build\plugin\standalone\PacemakerStandalone_artefacts\Release\Pacemaker.exe $out\Pacemaker-Standalone.exe
+          Copy-Item -Recurse integrations $out\integrations
+          Copy-Item docs\INSTALL.md,README.md $out\
+          Compress-Archive -Path $out\* -DestinationPath Pacemaker-windows-x64.zip -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pacemaker-windows-x64
+          path: Pacemaker-windows-x64.zip
+
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libasound2-dev libfreetype-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxext-dev libgl1-mesa-dev libfontconfig1-dev xvfb
+      - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DPACEMAKER_BUILD_PLUGIN=ON -DPACEMAKER_BUILD_HEADLESS=ON -DJUCE_TAG=$JUCE_TAG
+      - run: cmake --build build
+      - run: xvfb-run -a ctest --test-dir build --output-on-failure
+      - name: Package
+        run: |
+          mkdir -p out && cp -r build/plugin/PacemakerPlugin_artefacts/Release/{VST3,CLAP,LV2} out/ && cp build/plugin/standalone/PacemakerStandalone_artefacts/Release/Pacemaker out/Pacemaker-Standalone
+          cp build/headless/pacemaker_headless out/ && cp -r integrations out/ && cp docs/INSTALL.md README.md out/
+          (cd out && zip -qr ../Pacemaker-linux-x64.zip .)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pacemaker-linux-x64
+          path: Pacemaker-linux-x64.zip
+
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install ninja
+      - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DPACEMAKER_BUILD_PLUGIN=ON -DJUCE_TAG=$JUCE_TAG "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
+      - run: cmake --build build
+      - run: ctest --test-dir build --output-on-failure
+      - name: Sign and notarise (tags only, when secrets exist)
+        if: startsWith(github.ref, 'refs/tags/v') && env.APPLE_CERT_P12 != ''
+        env:
+          APPLE_CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
+          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          echo "$APPLE_CERT_P12" | base64 --decode > cert.p12
+          security create-keychain -p ci build.keychain && security default-keychain -s build.keychain && security unlock-keychain -p ci build.keychain
+          security import cert.p12 -k build.keychain -P "$APPLE_CERT_PASSWORD" -T /usr/bin/codesign && security set-key-partition-list -S apple-tool:,apple: -s -k ci build.keychain
+          ID=$(security find-identity -v -p codesigning | head -1 | sed 's/.*"\(.*\)"/\1/')
+          for b in build/plugin/PacemakerPlugin_artefacts/Release/*/*.vst3 build/plugin/PacemakerPlugin_artefacts/Release/*/*.component build/plugin/PacemakerPlugin_artefacts/Release/*/*.clap build/plugin/standalone/PacemakerStandalone_artefacts/Release/Pacemaker.app; do
+            [ -e "$b" ] && codesign --force --options runtime --timestamp --sign "$ID" "$b"
+          done
+          ditto -c -k --keepParent build/plugin/standalone/PacemakerStandalone_artefacts/Release/Pacemaker.app notarize.zip
+          xcrun notarytool submit notarize.zip --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
+          xcrun stapler staple build/plugin/standalone/PacemakerStandalone_artefacts/Release/Pacemaker.app
+      - name: Package
+        run: |
+          mkdir -p out && cp -R build/plugin/PacemakerPlugin_artefacts/Release/{VST3,AU,CLAP} out/ 2>/dev/null || true
+          cp -R build/plugin/standalone/PacemakerStandalone_artefacts/Release/Pacemaker.app out/ && cp -R integrations out/ && cp docs/INSTALL.md README.md out/
+          ditto -c -k --keepParent out Pacemaker-macos-universal.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pacemaker-macos-universal
+          path: Pacemaker-macos-universal.zip
+
+  publish:
+    needs: [windows, linux, macos]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true

@@ -28,6 +28,13 @@ public:
     void scalePeriod(double factor);
     void setFollow(bool follow);
 
+    // Learn mode (ES-01 section 7).
+    void startLearn();
+    bool learning() const { return learnArmed_ || learnRecording_; }
+    bool learnedReady() const { return learnedReady_; }
+    const LearnedPattern& takeLearned() { learnedReady_ = false; return learned_; }
+    void installPattern(const LearnedPattern& p);
+
 private:
     struct Hist { int64_t t; float s; };
     static constexpr int kHist = 64;
@@ -64,6 +71,15 @@ private:
     int missCount_ = 0, lockHits_ = 0, chaseBeats_ = 0, sameSign_ = 0, lastSign_ = 0;
     float confidence_ = 0.0f;
     double lastBpm_ = 0.0;
+
+    // Learn mode: counts of evidence per bar position over learnBars_ bars.
+    static constexpr int kLearnBars = 2;
+    bool learnArmed_ = false, learnRecording_ = false, learnedReady_ = false;
+    int learnBeat_ = 0;
+    float learnKick_[16] {}, learnSnare_[16] {}, learnStrong_[16] {};
+    LearnedPattern learned_;
+    void learnAccumulate();
+    void learnFinish();
 
     // Count-in.
     int clicks_ = 0; int64_t clickT_[4] {}; int64_t prevOnset_ = -1;

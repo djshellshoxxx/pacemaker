@@ -1,0 +1,14 @@
+# Plain-text cue/OSC examples for QLab. One message per line: address then arguments.
+# Verify addresses against QLab's OSC dictionary for your version.
+
+# Start cue number 1 (what Pacemaker's count-in launcher should send):
+/cue/1/start
+
+# Fire the current standby cue:
+/go
+
+# Stop everything:
+/panic
+
+# Test from a shell (stdlib script in this repo):
+#   python3 integrations/common/osc_tool.py send --host 127.0.0.1 --port 53000 /cue/1/start

@@ -1,0 +1,22 @@
+name: Thread sanitizer (weekly)
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+jobs:
+  tsan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: Configure with TSAN
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread" -DPACEMAKER_WITH_LINK=OFF -DPACEMAKER_BUILD_EVAL=OFF
+      - name: Build
+        run: cmake --build build --target PacemakerTests
+      - name: A2 engine, clock thread and OSC thread concurrently for 60 s
+        env:
+          PM_STRESS_SECONDS: "60"
+          TSAN_OPTIONS: "halt_on_error=1"
+        run: build/Tests/PacemakerTests A2_

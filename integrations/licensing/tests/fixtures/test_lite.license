@@ -1,0 +1,10 @@
+PACEMAKER-LICENSE-1
+product=pacemaker
+tier=lite
+licensee=Test Licensee
+email=test@example.invalid
+order=PM-TEST-0001
+issued=2026-01-01
+machines=1
+major=1
+signature=jWP3pyGO9M82LXUa_9qnFvfLQDGLk88FdwA1RpiUppg5949ZFVhHuGho-7y_32XK_8-TCO31_9yR-Lyea1l2AQ
