@@ -178,7 +178,7 @@ stereo, false)`); the main output passes input through unchanged when the
   `SetCurrentBPM`. Documented in INSTALL.
 - **Bitwig**: a bundled controller script subscribes to the same OSC and
   sets `transport.tempo()`. Documented.
-- **Live, Logic, Pro Tools, Reason**: Link.
+- **Live, Reason** (and Link-enabled apps such as Resolume): Link. **VERIFY** before publishing: Logic Pro and Pro Tools are not known to support Link natively; use MIDI clock or the Reaper/Bitwig scripts for them (see F-04 and F-27).
 - **Cubase, Studio One**: MIDI clock to a virtual port.
 - JUCE `AudioPlayHead::transportPlay()` is used for Start on hosts that
   report `canControlTransport()`; never for tempo.
@@ -215,3 +215,19 @@ shows port name and tick jitter, OSC shows send errors.
   Sync bus clicks.
 - O6. Build with `PACEMAKER_WITH_LINK=OFF` compiles, runs and passes all
   non-Link tests.
+
+---
+
+## 10. Implementation status (`pacemaker_outputs`, plain C++17, no JUCE)
+
+| Spec section | Code | Notes |
+|---|---|---|
+| 1 ClockMap | `ClockMap.h` | 512 point regression of block start versus host time, seqlock readers, `inputCompUs` (input plus acoustic latency, equivalent to correcting every onset sample) and `outputLatencyUs`. Host-provided timestamps are used by feeding them to `addBlock`. `BeatGrid` converts a snapshot to beat times, bar and phase. |
+| 2 Link | `LinkPolicy.h` | The policy (gate, deadband, commit interval, relock-only `forceBeatAtTime`, drift slew, fighting-peer warning) runs against the `LinkSession` interface and is tested with a mock (O2). The `ableton::Link` adapter is added with the licence; until then the server shows Link as unavailable. |
+| 3 MIDI clock | `MidiClock.h` | `MidiClockGenerator` is deterministic (Start on the first beat, 24 ticks per beat from the snapshot grid, Stop on Idle, SPP plus Continue on relock when enabled, per-output offset). `ClockThread` sleeps with adaptive slack then spins, and reports jitter. `MidiSink` implementations: raw device or FIFO (`/dev/snd/midiC*D*`) and callback. CoreMIDI future timestamps, Windows spin path with loopMIDI and the 0xF8 plugin MIDI buffer come with the plugin. |
+| 4 OSC | `Osc.h` | Encoder and decoder, NTP timetags, generator with Generic, Resolume (tempo normalised over 20 to 500 BPM) and MagicQ (tap address configurable) profiles, UDP sender and runner thread. Receiver conventions must be checked against each product's documentation. |
+| 5 Sync bus | `SyncRenderer.h` | Block-size independent renderer (O4). Needs an audio device to be audible; the server build has none. |
+| 7, 8 Offsets, status | `OutputStatus`, `MidiClockConfig::offsetMs`, `OscConfig::offsetMs` | |
+
+Tests: O2 to O5 in `Tests/OutputTests.cpp`. O1 (two-process Link) and O6
+(build without Link) wait for the Link adapter.
