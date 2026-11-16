@@ -111,7 +111,7 @@ public:
             const double x = (double) i / sr;
             const double f = 60.0 + 40.0 * std::exp(-x / 0.01);
             ph += 2.0 * M_PI * f / sr;
-            buf(0)[(size_t) (s0 + i)] += vel * 0.8f * (float) (std::sin(ph) * std::exp(-x / 0.025) * fade(i, n, sr));
+            mix(0, s0 + i, vel * 0.8f * (float) (std::sin(ph) * std::exp(-x / 0.025) * fade(i, n, sr)));
         }
     }
     void snare(double t, float vel)
@@ -129,7 +129,7 @@ public:
             const double y = noise - a1 * y1 - a2 * y2;
             y2 = y1; y1 = y;
             const double body = 0.4 * std::sin(2.0 * M_PI * 200.0 * x) * std::exp(-x / 0.03);
-            buf(1)[(size_t) (s0 + i)] += vel * (float) ((0.15 * y + body) * std::exp(-x / 0.02) * fade(i, n, sr));
+            mix(1, s0 + i, vel * (float) ((0.15 * y + body) * std::exp(-x / 0.02) * fade(i, n, sr)));
         }
     }
     void hihat(double t, float vel)
@@ -142,7 +142,7 @@ public:
             const double x = (double) i / sr;
             const double noise = rng.uniform() * 2.0 - 1.0;
             const double hp = noise - prev; prev = noise;   // crude high-pass
-            buf(2)[(size_t) (s0 + i)] += vel * 0.25f * (float) (hp * std::exp(-x / 0.006) * fade(i, n, sr));
+            mix(2, s0 + i, vel * 0.25f * (float) (hp * std::exp(-x / 0.006) * fade(i, n, sr)));
         }
     }
     // Crash cymbal: long broadband noise burst (used as the bar-1 accent that makes onsets "strong").
@@ -153,7 +153,7 @@ public:
         ensure(t + 0.41);
         for (int i = 0; i < n; ++i) {
             const double x = (double) i / sr;
-            buf(2)[(size_t) (s0 + i)] += vel * 0.5f * (float) ((rng.uniform() * 2.0 - 1.0) * std::exp(-x / 0.12) * fade(i, n, sr));
+            mix(2, s0 + i, vel * 0.5f * (float) ((rng.uniform() * 2.0 - 1.0) * std::exp(-x / 0.12) * fade(i, n, sr)));
         }
     }
     void click(double t, float vel)
@@ -163,8 +163,8 @@ public:
         ensure(t + 0.02);
         for (int i = 0; i < n; ++i) {
             const double x = (double) i / sr;
-            buf(2)[(size_t) (s0 + i)] += vel * (float) (std::sin(2.0 * M_PI * 3000.0 * x) * std::exp(-x / 0.001)
-                                                       + 0.3 * (rng.uniform() * 2.0 - 1.0) * std::exp(-x / 0.002)) * fade(i, n, sr);
+            mix(2, s0 + i, vel * (float) (std::sin(2.0 * M_PI * 3000.0 * x) * std::exp(-x / 0.001)
+                                                       + 0.3 * (rng.uniform() * 2.0 - 1.0) * std::exp(-x / 0.002)) * fade(i, n, sr));
         }
     }
     void addNoiseFloor(float amp = 1e-4f)
@@ -176,11 +176,18 @@ public:
 private:
     void ensure(double seconds)
     {
+        if (seconds <= 0.0) return;
         const size_t need = (size_t) (seconds * sr) + 1;
         if (audio.size() < need) audio.resize(need, 0.0f);
         if (splitRoles) for (auto& r : roleAudio) if (r.size() < need) r.resize(need, 0.0f);
     }
-    std::vector<float>& buf(int role) { return splitRoles ? roleAudio[role] : audio; }
+    void mix(int role, int64_t sample, float value)
+    {
+        // A jittered hit can start before the first recorded sample.
+        if (sample < 0) return;
+        auto& output = splitRoles ? roleAudio[role] : audio;
+        output[static_cast<size_t>(sample)] += value;
+    }
 };
 
 } // namespace drums

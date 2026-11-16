@@ -106,6 +106,27 @@ std::string fmt(const char* f, double a, double b = 0, double c = 0)
 
 // ------------------------------------------------------------------ unit tests
 
+TEST_CASE(DrumMachineClipsSamplesBeforeTheRecording)
+{
+    constexpr int sampleRate = 32768, offset = 128;
+    drums::Machine expected(sampleRate, 25), clipped(sampleRate, 25);
+    expected.splitRoles = clipped.splitRoles = true;
+    for (auto hit : { &drums::Machine::kick, &drums::Machine::snare, &drums::Machine::hihat,
+                      &drums::Machine::crash, &drums::Machine::click }) {
+        (expected.*hit)(0.0, 1.0f);
+        (clipped.*hit)(-static_cast<double>(offset) / sampleRate, 1.0f);
+    }
+    for (int role = 0; role < 3; ++role) {
+        const auto& reference = expected.roleAudio[role];
+        const auto& actual = clipped.roleAudio[role];
+        REQUIRE(actual.size() + offset == reference.size());
+        CHECK(std::equal(actual.begin(), actual.end(), reference.begin() + offset));
+    }
+    drums::Machine silent(sampleRate);
+    silent.click(-2.0, 1.0f);
+    CHECK(silent.audio.empty());
+}
+
 TEST_CASE(SpscQueueBasics)
 {
     SpscQueue<int, 8> q;
