@@ -28,6 +28,7 @@ Build: `cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build
 - `docs/DIFFERENTIATION.md` — what makes Pacemaker different and the
   ranked list of additional features
 - `docs/PROJECT-PLAN.md` — phases, checklist and risks
+- [Feature planning index](docs/specs/features/README.md) — 30 draft specifications, with a [development schedule](docs/dev/DEVELOPMENT-PLAN.md) and [quality strategy](docs/dev/QUALITY-STRATEGY.md) from the Phase 2 prototype.
 
 ## Why it is different
 
