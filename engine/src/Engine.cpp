@@ -33,6 +33,7 @@ uint8_t roleTag(InputRole r)
 struct Engine::Impl {
     EngineConfig cfg;
     FrontEnd fe[kMaxRoles];
+    std::atomic<float> thresholdScale { 1.25f };
     TempoInduction induction;
     Tracker tracker;
     SpscQueue<EngineEvent, 1024> events;
@@ -94,7 +95,7 @@ void Engine::prepare(const EngineConfig& cfgIn)
     m.window = 1024 * mult; m.hop = 256 * mult;
     FrontEndParams fp;
     fp.window = m.window; fp.hop = m.hop;
-    fp.k = 0.5f + 1.5f * (1.0f - std::clamp(m.cfg.sensitivity, 0.0f, 1.0f)); // sensitivity 0.5 -> k = 1.25
+    setSensitivity(m.cfg.sensitivity);
     for (int r = 0; r < kMaxRoles; ++r) m.fe[r].prepare(m.cfg.sampleRate, fp);
     m.induction.prepare(m.cfg.sampleRate, m.cfg.tempoRange.minBpm, m.cfg.tempoRange.maxBpm,
                         m.cfg.profile.kernelSeconds, m.cfg.referenceBpm);
@@ -155,7 +156,11 @@ void Engine::Impl::hopStep()
 
     float fused = 0.0f;
     FrontEnd::FrameOut outs[kMaxRoles];
-    for (int r = 0; r < cfg.numRoles; ++r) { outs[r] = fe[r].analyse(sampleCount); fused += outs[r].novelty; }
+    const float scale = thresholdScale.load(std::memory_order_relaxed);
+    for (int r = 0; r < cfg.numRoles; ++r) {
+        outs[r] = fe[r].analyse(sampleCount, scale);
+        fused += outs[r].novelty;
+    }
     induction.push(sampleCount - window / 2, fused);
 
     // Clock for the tracker: the latest time at which all onsets are known.
@@ -285,6 +290,11 @@ bool Engine::setLearnedPattern(const LearnedPattern& p)
     return true;
 }
 
+void Engine::setSensitivity(float sensitivity)
+{
+    const float scale = 0.5f + 1.5f * (1.0f - std::clamp(sensitivity, 0.0f, 1.0f));
+    impl_->thresholdScale.store(scale, std::memory_order_relaxed);
+}
 void Engine::setFollow(bool f) { impl_->follow.store(f ? 1 : 0); }
 
 } // namespace pacemaker

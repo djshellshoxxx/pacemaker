@@ -1032,11 +1032,24 @@ TEST_CASE(A2_ConcurrentThreadsStress)
     auto sink = std::make_shared<MemorySink>(); core.setMidiSink(sink);
     auto cap = std::make_shared<CaptureTransport>(); core.osc().setTransportForTest(cap);
     core.prepare(kSr, 64, 1);
+    // Start the measured interval after the tracker acquires the groove. The MIDI clock
+    // only emits Start and ticks once locked, independently of the stress duration.
+    size_t pos = 0;
+    while (pos + 64 <= dm.audio.size() && core.timeline().snap.state != static_cast<uint8_t>(EngineState::Locked)) {
+        const float* ch[1] = { dm.audio.data() + pos };
+        CoreHostInfo host;
+        host.hostTimeUs = steadyNowUs();
+        core.process(ch, 1, 64, host, nullptr, 0, nullptr, nullptr, nullptr, nullptr, 0);
+        pos += 64;
+    }
+    REQUIRE(core.timeline().snap.state == static_cast<uint8_t>(EngineState::Locked));
+    pos %= dm.audio.size() - 64;
+    const auto startSequence = core.timeline().snap.sequence;
+    const auto startRecords = sink->records().size();
     std::atomic<bool> stop { false };
     std::thread ui([&] { while (!stop) { core.timeline(); EngineEvent e; while (core.popUiEvent(e)) {} float tr[100]; core.copyTrace(tr, 100); core.statusSummary(); core.doAction(Action::NudgePlus); core.doAction(Action::NudgeMinus); std::this_thread::sleep_for(std::chrono::milliseconds(2)); } });
     const auto t0 = std::chrono::steady_clock::now();
     std::vector<float> L(64), R(64);
-    size_t pos = 0;
     while (std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count() < seconds) {
         const float* ch[1] = { dm.audio.data() + pos };
         CoreHostInfo h; h.hostTimeUs = steadyNowUs();
@@ -1047,6 +1060,6 @@ TEST_CASE(A2_ConcurrentThreadsStress)
         if (pos % (64 * 200) == 0) { Params p = core.params(); p.sensitivity = p.sensitivity > 0.5f ? 0.4f : 0.6f; core.setParams(p); }
     }
     stop = true; ui.join();
-    CHECK(sink->records().size() > 0);
-    CHECK(core.timeline().snap.sequence > 100);
+    CHECK(sink->records().size() > startRecords);
+    CHECK(core.timeline().snap.sequence > startSequence + 100);
 }

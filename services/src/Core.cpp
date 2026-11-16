@@ -141,7 +141,7 @@ bool Core::needsRebuild(const Params& a, const Params& b, const SessionSettings&
 {
     if (a.profile != b.profile || a.alpha != b.alpha || a.beta != b.beta || a.tempoMin != b.tempoMin || a.tempoMax != b.tempoMax
         || a.referenceBpm != b.referenceBpm || a.meterNum != b.meterNum || a.meterDen != b.meterDen || a.pattern != b.pattern
-        || a.autoOctave != b.autoOctave || a.grouping78 != b.grouping78 || a.sensitivity != b.sensitivity) return true;
+        || a.autoOctave != b.autoOctave || a.grouping78 != b.grouping78) return true;
     if (sa.moduleLatencyMs != sb.moduleLatencyMs || sa.channels.size() != sb.channels.size()) return true;
     for (size_t i = 0; i < sa.channels.size(); ++i) {
         const auto &x = sa.channels[i], &y = sb.channels[i];
@@ -203,7 +203,10 @@ void Core::setState(const PluginState& st)
     if (prepared_) {
         if (rebuild) installRig(buildRig(params_, session_));
         applySessionToOutputs(session_);
-        if (uiRig_.load()) uiRig_.load()->engine.setFollow(follow_.load());
+        if (Rig* rig = uiRig_.load()) {
+            rig->engine.setSensitivity(params_.sensitivity);
+            rig->engine.setFollow(follow_.load());
+        }
     }
 }
 
@@ -216,7 +219,10 @@ void Core::setParams(const Params& p)
     follow_ = p.follow;
     if (prepared_) {
         if (rebuild) installRig(buildRig(params_, session_));
-        if (uiRig_.load()) uiRig_.load()->engine.setFollow(follow_.load());
+        if (Rig* rig = uiRig_.load()) {
+            rig->engine.setSensitivity(params_.sensitivity);
+            rig->engine.setFollow(follow_.load());
+        }
     }
 }
 SessionSettings Core::session() const { std::lock_guard<std::mutex> l(cfgMutex_); return session_; }

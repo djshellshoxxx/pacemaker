@@ -40,6 +40,7 @@ public:
     void halfTime();
     void doubleTime();
     void setFollow(bool follow);
+    void setSensitivity(float sensitivity);
 
     // Learn mode (ES-01 section 7). learnPattern() records the kick/snare/strong histogram per bar
     // position over the next 2 bars; the first beat after the call (or the first beat 1 of a

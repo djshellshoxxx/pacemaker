@@ -47,7 +47,7 @@ void FrontEnd::append(const float* x, int n)
     }
 }
 
-FrontEnd::FrameOut FrontEnd::analyse(int64_t frameEndSample)
+FrontEnd::FrameOut FrontEnd::analyse(int64_t frameEndSample, float thresholdScale)
 {
     FrameOut out;
     const int N = p_.window;
@@ -99,7 +99,7 @@ FrontEnd::FrameOut FrontEnd::analyse(int64_t frameEndSample)
     for (int64_t j = n - p_.w2; j <= n; ++j) { const float x = nov_[histIdx(j)]; m2 += x; s2 += x * x; }
     const float cnt = (float) (p_.w2 + 1);
     m2 /= cnt; s2 = std::sqrt(std::max(0.0f, s2 / cnt - m2 * m2));
-    const float delta = std::max(p_.k * s2, p_.minNovelty);
+    const float delta = std::max(thresholdScale * s2, p_.minNovelty);
     if (v < m2 + delta) return out;
 
     lastPeakFrame_ = n;
