@@ -40,7 +40,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build libasound2-dev libfreetype-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev \
-            libxext-dev libgl1-mesa-dev libfontconfig1-dev xvfb lv2lint lilv-utils unzip curl
+            libxext-dev libgl1-mesa-dev libfontconfig1-dev xvfb liblilv-dev lv2-dev meson lilv-utils unzip curl
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DPACEMAKER_BUILD_PLUGIN=ON -DPACEMAKER_BUILD_HEADLESS=ON -DJUCE_TAG=$JUCE_TAG
       - name: Build
@@ -57,8 +57,16 @@ jobs:
       - name: lv2lint
         continue-on-error: true
         run: |
-          export LV2_PATH=$PWD/build/plugin/PacemakerPlugin_artefacts/Release/LV2
-          lv2lint -Mpack -I "$LV2_PATH/Pacemaker.lv2" https://github.com/djshellshoxxx/pacemaker
+          # Jammy provides the LV2 development libraries but does not package lv2lint.
+          src="$RUNNER_TEMP/lv2lint-src"
+          prefix="$RUNNER_TEMP/lv2lint"
+          git init -q "$src"
+          git -C "$src" fetch -q --depth=1 https://github.com/amsynth/lv2lint.git ec29cfed3193a89a8091a4c18e22bb36e6b43b24
+          git -C "$src" checkout -q --detach FETCH_HEAD
+          meson setup "$RUNNER_TEMP/lv2lint-build" "$src" --prefix="$prefix"
+          meson install -C "$RUNNER_TEMP/lv2lint-build"
+          export LV2_PATH="$PWD/build/plugin/PacemakerPlugin_artefacts/Release/LV2"
+          "$prefix/bin/lv2lint" -Mpack -I "$LV2_PATH/Pacemaker.lv2" https://github.com/djshellshoxxx/pacemaker
       - name: clap-validator
         continue-on-error: true
         run: |
@@ -74,7 +82,7 @@ jobs:
 
   windows:
     name: Windows x64 (MSVC)
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
       - name: Configure
