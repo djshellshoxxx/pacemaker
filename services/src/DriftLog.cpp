@@ -199,7 +199,7 @@ std::vector<uint8_t> buildTempoMapMidi(const std::vector<DriftRow>& rows, int be
     int beatIdx = 0;
     bool first = true;
     for (const auto& r : rows) {
-        if (!(r.event.empty() || r.event == "beat")) continue;
+        if (!(r.event.empty() || r.event == "beat" || r.event == "relock")) continue;
         if (r.bpm <= 0 || r.state < (int) EngineState::Locking) continue;
         if (first) { first = false; }
         else ++beatIdx;

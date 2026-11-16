@@ -660,10 +660,14 @@ TEST_CASE(L3_RoleAcousticDelay)
     core.setSession(s);
     core.prepare(kSr, 256, 2);
     const int extra = roleDelaySamples(InputRole::Overhead, 1.0, 0, kSr) - roleDelaySamples(InputRole::Kick, 0.1, 0, kSr);
-    std::vector<float> a((size_t) kSr * 2, 0.f), b(a.size(), 0.f);
-    for (int hit = 0; hit < 8; ++hit) {
-        const size_t at = (size_t) (0.4 * kSr + hit * 0.5 * kSr);
-        for (int i = 0; i < 300; ++i) {
+    constexpr size_t hitCount = 8, burstLength = 300;
+    const auto firstHit = static_cast<size_t>(0.4 * kSr);
+    const auto interval = static_cast<size_t>(0.5 * kSr);
+    const auto end = firstHit + (hitCount - 1) * interval + static_cast<size_t>(extra) + burstLength;
+    std::vector<float> a(end + 256, 0.f), b(a.size(), 0.f);
+    for (size_t hit = 0; hit < hitCount; ++hit) {
+        const size_t at = firstHit + hit * interval;
+        for (int i = 0; i < static_cast<int>(burstLength); ++i) {
             const float v = (float) (std::sin(i * 0.31) * std::exp(-i / 60.0));
             a[at + (size_t) i] += v; b[at + (size_t) extra + (size_t) i] += v;
         }
