@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Pacemaker</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header class="top">
+  <h1>Pacemaker</h1>
+  <nav aria-label="Pages">
+    <a href="/metronome" id="lnkMetro">Drummer metronome</a>
+    <a href="/api/report" id="lnkReport" target="_blank" rel="noopener">Drift report</a>
+    <a href="/api/tempomap.mid" id="lnkMap" download>Tempo map (.mid)</a>
+  </nav>
+  <span id="conn" class="conn bad" role="status">Connecting</span>
+</header>
+<p id="banner" role="alert"></p>
+
+<main>
+  <section class="card wide" aria-labelledby="hMain">
+    <h2 id="hMain" class="sr">Tempo and state</h2>
+    <div class="hero">
+      <div>
+        <div class="tempo"><span id="bpm">--</span><small>BPM</small></div>
+      </div>
+      <div>
+        <span id="state" class="stateword st-IDLE" aria-live="polite">IDLE</span>
+        <span id="songName" class="note" style="margin-left:12px"></span>
+        <div class="row" style="grid-template-columns:7rem 1fr 4rem">
+          <span class="lbl" id="lblConf">Confidence</span>
+          <div class="meter" role="meter" aria-labelledby="lblConf" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="confMeter"><div id="confBar"></div></div>
+          <span class="val" id="confVal">0%</span>
+        </div>
+        <div class="facts">
+          <span>Bar <b id="bar">-</b></span><span>Beat <b id="beat">-</b></span>
+          <span>Meter <b id="meter">4/4</b></span><span>Nudge <b id="nudge">0 ms</b></span>
+          <span id="flags"></span>
+        </div>
+        <div class="beatdots" id="dots" aria-hidden="true"></div>
+      </div>
+    </div>
+    <canvas id="trace" width="800" height="120" role="img" aria-label="Onset strength, last 8 seconds"></canvas>
+  </section>
+
+  <section class="card" aria-labelledby="hCtl">
+    <h2 id="hCtl">Operator controls</h2>
+    <div class="btns">
+      <button id="bFollow" aria-pressed="true">Follow<kbd>F</kbd></button>
+      <button class="primary" data-act="tap">Tap<kbd>T</kbd></button>
+      <button data-act="downbeatNow">Downbeat now<kbd>D</kbd></button>
+      <button data-act="relock">Relock<kbd>R</kbd></button>
+      <button data-act="half">Half<kbd>H</kbd></button>
+      <button data-act="double">Double<kbd>X</kbd></button>
+      <button data-act="nudgeMinus" aria-label="Nudge earlier 10 milliseconds">Nudge &minus;<kbd>[</kbd></button>
+      <button data-act="nudgePlus" aria-label="Nudge later 10 milliseconds">Nudge +<kbd>]</kbd></button>
+      <button data-act="shiftMinus" aria-label="Shift bar position back one beat">Beat &minus;1</button>
+      <button data-act="shiftPlus" aria-label="Shift bar position forward one beat">Beat +1</button>
+    </div>
+    <p class="note">Nudge moves the published beat in 10 ms steps (+/-100 ms). Shortcuts work when no field has focus.</p>
+  </section>
+
+  <section class="card" aria-labelledby="hIn">
+    <h2 id="hIn">Inputs</h2>
+    <div id="inputs"></div>
+  </section>
+
+  <section class="card wide" aria-labelledby="hOut">
+    <h2 id="hOut">Outputs</h2>
+    <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Output</th><th>Enabled</th><th>Status</th><th>Target</th><th>Offset (ms)</th></tr></thead>
+      <tbody>
+        <tr><td>Ableton Link</td>
+            <td><label class="chk"><input type="checkbox" id="oLink"><span class="sr">Link enabled</span></label></td>
+            <td id="sLink"></td><td id="tLink" class="note"></td><td class="note">n/a</td></tr>
+        <tr><td>MIDI clock</td>
+            <td><label class="chk"><input type="checkbox" id="oMidi"><span class="sr">MIDI clock enabled</span></label></td>
+            <td id="sMidi"></td>
+            <td><select id="portSel" aria-label="MIDI clock output port"></select></td>
+            <td><input type="number" id="offMidi" step="0.5" min="-300" max="300" aria-label="MIDI clock offset in milliseconds"></td></tr>
+        <tr><td>OSC</td>
+            <td><label class="chk"><input type="checkbox" id="oOsc"><span class="sr">OSC enabled</span></label></td>
+            <td id="sOsc"></td><td id="tOsc" class="note"></td>
+            <td><input type="number" id="offOsc" step="0.5" min="-300" max="300" aria-label="OSC offset in milliseconds"></td></tr>
+        <tr><td>Sync pulse</td>
+            <td><label class="chk"><input type="checkbox" id="oSync"><span class="sr">Sync pulse enabled</span></label></td>
+            <td id="sSync"></td><td class="note">audio out</td>
+            <td><input type="number" id="offSync" step="0.5" min="-300" max="300" aria-label="Sync pulse offset in milliseconds"></td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="hSong">
+    <h2 id="hSong">Songs</h2>
+    <ul class="songs" id="songs" aria-label="Song list"></ul>
+    <p class="note" id="noSongs">No songs loaded. Add them in config.json (session.songs) or PUT /api/songs (JSON or CSV).</p>
+    <div class="btns" style="margin-top:10px">
+      <button data-act="prevSong">Previous<kbd>P</kbd></button><button data-act="nextSong">Next<kbd>N</kbd></button>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="hSet">
+    <h2 id="hSet">Tracking setup</h2>
+    <form id="setup" class="grid2" onsubmit="return false">
+      <div><label for="fProfile">Profile</label>
+        <select id="fProfile"><option value="stage">Stage</option><option value="rehearsal">Rehearsal</option></select></div>
+      <div><label for="fRef">Reference BPM (0 = none)</label><input type="number" id="fRef" min="0" max="300" step="0.1"></div>
+      <div><label for="fPattern">Bar pattern</label><select id="fPattern"></select></div>
+      <div><label for="fNum">Meter beats</label><input type="number" id="fNum" min="1" max="16" step="1"></div>
+      <div><label for="fDen">Meter unit</label><select id="fDen"><option value="4">4</option><option value="8">8</option></select></div>
+    </form>
+  </section>
+
+  <section class="card wide" aria-labelledby="hCal">
+    <h2 id="hCal">Calibration</h2>
+    <div class="grid2" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+      <div>
+        <h3>Loopback (hidden latency)</h3>
+        <p class="note">Cable an audio output to the input channel below. Plays 8 clicks, measures the round trip.</p>
+        <label for="lbCh">Input channel</label><select id="lbCh"></select>
+        <div class="btns" style="margin-top:8px"><button id="lbStart">Start loopback</button></div>
+        <div class="res" id="lbRes" aria-live="polite">Idle.</div>
+      </div>
+      <div>
+        <h3>Tap-along (input latency)</h3>
+        <p class="note">Play along with a click from a DAW. Needs a host tempo grid; not available on the standalone box.</p>
+        <div class="btns"><button id="taStart">Start</button><button id="taAccept">Accept</button></div>
+        <div class="res" id="taRes" aria-live="polite">Idle.</div>
+      </div>
+      <div>
+        <h3>Hardware clock offset</h3>
+        <p class="note">The drummer plays with the hardware click. Pick the input role the click arrives on. Needs 8 pairs.</p>
+        <label for="hwRole">Click source role</label>
+        <select id="hwRole"></select>
+        <div class="btns" style="margin-top:8px"><button id="hwStart">Start</button><button id="hwApply">Apply offset</button></div>
+        <div class="res" id="hwRes" aria-live="polite">Idle.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card wide" aria-labelledby="hExp">
+    <h2 id="hExp">Session</h2>
+    <div class="btns">
+      <button id="dlStart">Start drift log file</button><button id="dlStop">Stop drift log file</button>
+      <a href="/api/driftlog.csv" id="lnkCsv" download>Download drift CSV</a>
+    </div>
+    <p class="note" id="dlInfo"></p>
+    <p class="note">Shortcuts: T tap, D downbeat, R relock, H half, X double, F follow, [ ] nudge, N / P song.</p>
+  </section>
+</main>
+
+<dialog id="tokDlg" aria-labelledby="tokH">
+  <form method="dialog" id="tokForm">
+    <h2 id="tokH" style="color:var(--text)">Access token</h2>
+    <label for="tokIn">This Pacemaker needs a token</label>
+    <input type="password" id="tokIn" autocomplete="off">
+    <div class="btns" style="margin-top:12px"><button class="primary" value="ok">Unlock</button></div>
+  </form>
+</dialog>
+<script src="/app.js"></script>
+</body>
+</html>

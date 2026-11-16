@@ -1,0 +1,2 @@
+Pacemaker licence verification uses ed25519 by Orson Peters (zlib licence) and SHA-512 from LibTomCrypt
+(public domain). See third_party/ed25519/LICENSE.txt.

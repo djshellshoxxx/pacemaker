@@ -25,7 +25,7 @@ void Tracker::prepare(const EngineConfig& cfg, EventQueue* out, const TempoInduc
     minTau_ = 60.0 * sr_ / std::max(cfg.tempoRange.maxBpm, 30.0);
     maxTau_ = 60.0 * sr_ / std::max(cfg.tempoRange.minBpm, 1.0);
     sigmaMeas_ = 0.012 * sr_;
-    bar_.prepare(cfg.meter, cfg.pattern);
+    bar_.prepare(cfg.meter, cfg.pattern, cfg.grouping78, &cfg.learnedPattern);
     reset();
 }
 
@@ -40,6 +40,7 @@ void Tracker::reset()
     hitMask_ = 0; innovN_ = innovPos_ = 0; missCount_ = lockHits_ = chaseBeats_ = sameSign_ = lastSign_ = 0;
     confidence_ = 0; lastBpm_ = 0; clicks_ = 0; prevOnset_ = -1; holdOutsideN_ = 0; lastTap_ = -1;
     histPos_ = histN_ = 0;
+    learnArmed_ = learnRecording_ = learnedReady_ = false; learnBeat_ = 0;
 }
 
 double Tracker::clampTau(double t) const { return std::clamp(t, minTau_, maxTau_); }
@@ -58,6 +59,7 @@ void Tracker::goIdle()
 {
     if (tau_ > 0) lastBpm_ = bpmOf(tau_);
     state_ = EngineState::Idle; clicks_ = 0; confidence_ = 0.0f; emitted_ = false;
+    learnArmed_ = learnRecording_ = false;
 }
 
 // ---------------------------------------------------------------- onsets
@@ -159,6 +161,18 @@ void Tracker::tick(int64_t now)
         const bool near = std::fabs(ratio - 2.0) <= 0.08 || std::fabs(ratio - 0.5) <= 0.02;
         if (near) { if (octaveSince_ < 0) octaveSince_ = now; octaveFlag_ = (double) (now - octaveSince_) > 4.0 * sr_; }
         else { octaveSince_ = -1; octaveFlag_ = false; }
+        // Auto octave (ES-01 section 5): switch when the ambiguity has persisted for 8 bars and the
+        // bar tracker's evidence agrees, i.e. it cannot confirm a bar position at the current octave.
+        if (cfg_.autoOctave && octaveFlag_ && state_ != EngineState::Hold && !bar_.confirmed()
+            && (double) (now - octaveSince_) > 8.0 * bar_.beats() * tau_) {
+            const double target = induction_->bestBpm();
+            if (target > 0) {
+                const double f = bpmOf(tau_) / target;
+                const int pos = bar_.position();
+                scalePeriod(f);
+                bar_.setPosition(pos, false);
+            }
+        }
     }
 
     for (;;) {
@@ -225,6 +239,7 @@ void Tracker::closeBeat(int64_t now)
     if (state_ == EngineState::Chase && --chaseBeats_ <= 0) state_ = EngineState::Locked;
     if (state_ == EngineState::Locked && sameSign_ >= 3 && follow_) { state_ = EngineState::Chase; chaseBeats_ = kChaseBeats; sameSign_ = 0; }
 
+    learnAccumulate();
     bar_.closeBeat(evKick_, evSnare_, evStrong_);
     if (bar_.position() == 1 && state_ != EngineState::CountIn) ++barNumber_;
 
@@ -272,6 +287,13 @@ void Tracker::maybeStartLocking(int64_t now)
     if (lastBpm_ > 0) {   // prefer the octave consistent with the last tracked tempo
         for (double f : { 0.5, 2.0 })
             if (std::fabs(bpm * f - lastBpm_) < 0.04 * lastBpm_ && induction_->magnitudeAt(bpm * f) > 0.3f * induction_->magnitudeAt(bpm)) bpm *= f;
+    } else {
+        // A periodic onset train has equally strong tempogram peaks at f, 2f, 3f..., and the 120 BPM
+        // Rayleigh prior favours the faster one. If the sub-octave is nearly as strong (the prior
+        // already weighs it down by about 0.73 at 60 vs 120 BPM) the onsets sit on the slower grid:
+        // take it. Without this a 60 BPM groove locks at 120 and half the predicted beats are empty.
+        const double half = 0.5 * bpm;
+        if (half >= cfg_.tempoRange.minBpm + 1.0 && induction_->magnitudeAt(half) >= 0.6f * induction_->magnitudeAt(bpm)) bpm = half;
     }
     const double tau = clampTau(60.0 * sr_ / bpm);
     // Phase search: comb of candidate phases against the recent onset history.
@@ -350,5 +372,66 @@ void Tracker::scalePeriod(double factor)
 }
 
 void Tracker::setFollow(bool follow) { follow_ = follow; }
+
+
+// ---------------------------------------------------------------- learn mode
+
+void Tracker::startLearn()
+{
+    learnArmed_ = true; learnRecording_ = false; learnBeat_ = 0;
+    std::fill(std::begin(learnKick_), std::end(learnKick_), 0.0f);
+    std::fill(std::begin(learnSnare_), std::end(learnSnare_), 0.0f);
+    std::fill(std::begin(learnStrong_), std::end(learnStrong_), 0.0f);
+}
+
+void Tracker::learnAccumulate()
+{
+    // Called when a beat closes, before the bar tracker advances.
+    if (learnArmed_) {
+        if (state_ == EngineState::CountIn) return;          // wait for the first beat after the count-in
+        if (state_ == EngineState::Idle) return;
+        if (state_ != EngineState::Locked && state_ != EngineState::Chase && state_ != EngineState::Locking) return;
+        learnArmed_ = false; learnRecording_ = true; learnBeat_ = 0;
+        if (!hit_) { learnArmed_ = true; learnRecording_ = false; return; }   // start on a played beat
+        bar_.setPosition(1, false);                          // this beat is position 1
+    }
+    if (!learnRecording_) return;
+    const int pos = bar_.position() - 1;
+    if (evKick_) learnKick_[pos] += 1.0f;
+    if (evSnare_) learnSnare_[pos] += 1.0f;
+    if (evStrong_) learnStrong_[pos] += 1.0f;
+    if (++learnBeat_ >= kLearnBars * bar_.beats()) learnFinish();
+}
+
+void Tracker::learnFinish()
+{
+    const int N = bar_.beats();
+    LearnedPattern l;
+    l.beats = N;
+    const float bars = (float) kLearnBars;
+    float maxPos = 0.0f;
+    for (int b = 0; b < N; ++b) {
+        const float kf = learnKick_[b] / bars, sf = learnSnare_[b] / bars;
+        // Same shape as the shipped tables: positive for the voice that plays there, -0.5 style
+        // penalty for the other voice sounding alone.
+        l.kick[b] = kf - 0.5f * sf * (1.0f - kf);
+        l.snare[b] = sf - 0.5f * kf * (1.0f - sf);
+        l.strong[b] = 0.5f * learnStrong_[b] / bars;
+        maxPos = std::max({ maxPos, l.kick[b], l.snare[b] });
+    }
+    if (maxPos > 0.0f) {                                      // normalise so the strongest entry is 1
+        for (int b = 0; b < N; ++b) { l.kick[b] /= maxPos; l.snare[b] /= maxPos; }
+    }
+    learned_ = l; learnedReady_ = true;
+    learnRecording_ = false;
+    installPattern(l);
+    bar_.setPosition(bar_.position(), true);                  // learned from a known position: confirmed
+}
+
+void Tracker::installPattern(const LearnedPattern& p)
+{
+    if (p.beats != bar_.beats()) return;
+    bar_.installTable(BarTracker::tableFromLearned(p));
+}
 
 } // namespace pacemaker

@@ -11,7 +11,10 @@ struct PatternTable {
 
 class BarTracker {
 public:
-    void prepare(const Meter& meter, BarPattern pattern);
+    void prepare(const Meter& meter, BarPattern pattern, Grouping78 grouping = Grouping78::G223,
+                 const LearnedPattern* learned = nullptr);
+    void installTable(const PatternTable& t);   // keeps position; same beat count required
+    static PatternTable tableFromLearned(const LearnedPattern& l);
     void reset();
 
     // Evidence collected around the beat that just closed, whose hypothesised position is
@@ -21,6 +24,7 @@ public:
 
     int position() const { return position_; }
     bool confirmed() const { return confirmed_; }
+    const PatternTable& table() const { return table_; }
     int beats() const { return table_.beats; }
 
     // Overrides.

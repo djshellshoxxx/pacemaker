@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pacemaker: the band sets the tempo</title>
+<meta name="description" content="Pacemaker listens to a live drummer and makes backing tracks, hardware, lights and video follow the band. Link, MIDI clock, OSC and audio sync out, in any host.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site"><div class="wrap">
+  <span class="brand">Pacemaker</span>
+  <nav aria-label="Sections"><a href="#how">How it works</a><a href="#why">Why it is different</a><a href="#hosts">Hosts</a><a href="#pricing">Pricing</a><a href="#get">Get it</a></nav>
+</div></header>
+
+<main>
+<div class="wrap">
+  <div class="hero">
+    <h1>The band sets the tempo.<br>The machine keeps up.</h1>
+    <p class="lead">Pacemaker listens to your drummer and publishes the tempo, the beat and the bar to your backing tracks, hardware, lights and video. Nobody plays to a metronome. Everything else follows the kit.</p>
+    <svg class="trace" viewBox="0 0 600 90" preserveAspectRatio="none" role="img" aria-label="Heart-monitor style trace of drum hits with predicted beats">
+      <line class="grid" x1="0" y1="45" x2="600" y2="45"/>
+      <g class="grid"><line x1="60" y1="0" x2="60" y2="90"/><line x1="180" y1="0" x2="180" y2="90"/><line x1="300" y1="0" x2="300" y2="90"/><line x1="420" y1="0" x2="420" y2="90"/><line x1="540" y1="0" x2="540" y2="90"/></g>
+      <polyline class="wave" points="0,45 50,45 56,45 60,8 64,80 68,45 110,45 130,42 140,45 170,45 176,45 180,12 184,78 188,45 230,45 250,47 260,45 290,45 296,45 300,6 304,82 308,45 350,45 372,43 380,45 410,45 416,45 420,10 424,79 428,45 470,45 490,46 500,45 530,45 536,45 540,9 544,81 548,45 600,45"/>
+    </svg>
+    <p><a class="btn" href="#get">Get Pacemaker</a><a class="btn secondary" href="#how">See how it works</a></p>
+    <p><span class="pill">Pre-release</span> <span class="pill">VST3 &middot; CLAP &middot; AU &middot; LV2 &middot; Standalone</span> <span class="pill">Windows &middot; macOS &middot; Linux</span></p>
+  </div>
+</div>
+
+<section id="how"><div class="wrap">
+  <h2>From the kit to the whole rig</h2>
+  <div class="grid3">
+    <div class="card"><h3>1. Listen</h3><p>Put Pacemaker on the drum bus or overheads, point a side input at the kick mic, or use the standalone with four mics, e-drum MIDI or triggers. It fuses what it hears and tells you how sure it is.</p></div>
+    <div class="card"><h3>2. Predict</h3><p>It tracks tempo, beat phase and bar position, holds steady through fills and breakdowns, and shows a confidence meter so you can trust it on stage.</p></div>
+    <div class="card"><h3>3. Publish</h3><p>Ableton Link, MIDI clock with start and stop, OSC with timestamped beats, and an audio sync pulse. All at once, in any host or none.</p></div>
+  </div>
+  <p>A count-in of four stick hits sets bar one. A song map with reference tempo and meter stops half-time and double-time mix-ups before they start. A drift report after the show shows what the band really did.</p>
+</div></section>
+
+<section id="why"><div class="wrap">
+  <h2>Why it is different</h2>
+  <p>Ableton's Tempo Follower and Max for Live devices solved one slice of this inside one host. Pacemaker is built for the whole rig. Comparison sources are in the project's research notes; re-check vendor claims before quoting them.</p>
+  <div class="tablewrap" tabindex="0" role="region" aria-label="Comparison table (scrolls sideways on small screens)">
+  <table>
+    <thead><tr><th></th><th>Ableton Tempo Follower (Live 11.1+)</th><th>BeatSeeker (Max for Live, 2015)</th><th class="us">Pacemaker</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Hosts</th><td>Live only</td><td>Live Suite only</td><td class="us">Any VST3, CLAP, AU or LV2 host; standalone; Raspberry Pi box planned</td></tr>
+      <tr><th scope="row">Apple Silicon</th><td>Yes</td><td>Listed by Ableton as not compatible</td><td class="us">Yes</td></tr>
+      <tr><th scope="row">Inputs</th><td>One external audio input</td><td>One audio track</td><td class="us">Kick, snare, hat, overhead, trigger, e-drum MIDI, tap, fused with weights</td></tr>
+      <tr><th scope="row">Outputs</th><td>Sets Live's tempo; Link and external sync are greyed out while it follows (Live 11)</td><td>Sets Live's tempo</td><td class="us">Link, MIDI clock with song position, OSC, audio pulse, host transport, all at once</td></tr>
+      <tr><th scope="row">Beat, bar, downbeat</th><td>Tempo only</td><td>Tempo only</td><td class="us">Tempo, phase, bar, downbeat, confidence</td></tr>
+      <tr><th scope="row">Fills and 6/8</th><td>Documented oscillation on 6/8; erratic on a full kit</td><td>Locks to the first tempo and drifts</td><td class="us">Expectancy gating, Hold and Chase states, meter patterns</td></tr>
+      <tr><th scope="row">Operator control</th><td>One Follow button</td><td>Mode switch</td><td class="us">Follow, Tap, Downbeat now, Nudge, Half, Double, Relock, confidence meter</td></tr>
+      <tr><th scope="row">Count-in</th><td>None</td><td>None</td><td class="us">Detects stick hits and sets bar one</td></tr>
+      <tr><th scope="row">Calibration</th><td>Latency slider</td><td>None</td><td class="us">Loopback and tap-along wizards, per-mic distance</td></tr>
+      <tr><th scope="row">After the show</th><td>None</td><td>None</td><td class="us">Drift log, report, tempo map export</td></tr>
+    </tbody>
+  </table></div>
+  <h3 style="margin-top:20px">What you get that you could not get before</h3>
+  <ul class="clean">
+    <li>Lights and clips launch on one, not just at the right speed.</li>
+    <li>Fills, breakdowns and 6/8 do not throw the tempo, and you can see why.</li>
+    <li>Link, MIDI clock and OSC at the same time while following the drummer.</li>
+    <li>Logic, MainStage, Cubase, Bitwig, Reaper, QLab and hardware grooveboxes, not only Live.</li>
+    <li>A box on the stage with no laptop (planned).</li>
+  </ul>
+</div></section>
+
+<section id="hosts"><div class="wrap">
+  <h2>Works with your rig</h2>
+  <div class="tablewrap" tabindex="0" role="region" aria-label="Host compatibility (scrolls sideways on small screens)">
+  <table>
+    <thead><tr><th>Host</th><th>Tempo into the host</th><th>Hardware clock</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Ableton Live 11, 12</td><td>Link</td><td>MIDI port</td><td>Switch Tempo Follower off. Sidechain "Audio From" for the kick.</td></tr>
+      <tr><td>Logic Pro 10.7.5+</td><td>Link</td><td>MIDI port</td><td>AU with Side Chain input.</td></tr>
+      <tr><td>MainStage</td><td>MIDI clock in; Link in MainStage 4</td><td>MIDI port</td><td>Check your version.</td></tr>
+      <tr><td>Reaper</td><td>Bundled OSC config or script</td><td>MIDI port</td><td>Tempo follow script needs a ReaPack socket library.</td></tr>
+      <tr><td>Bitwig Studio</td><td>Link or bundled controller script</td><td>MIDI port</td><td></td></tr>
+      <tr><td>Cubase, Nuendo</td><td>Not live</td><td>MIDI port</td><td>Clock out only; tempo map export for the edit.</td></tr>
+      <tr><td>Studio One</td><td>Being verified</td><td>MIDI port</td><td>Treated as clock out for now.</td></tr>
+      <tr><td>Pro Tools 2020.9+</td><td>Link</td><td>MIDI port</td><td>Standalone app until AAX ships.</td></tr>
+      <tr><td>Reason</td><td>Link</td><td>MIDI port</td><td></td></tr>
+      <tr><td>QLab</td><td>OSC cue triggers on the downbeat</td><td>-</td><td>Start a song on the drummer's count-in.</td></tr>
+      <tr><td>Resolume, VDMX, TouchDesigner</td><td>Link or OSC</td><td>-</td><td>Resolume profile included; TouchDesigner example included.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Windows users who route MIDI clock to other programs need the free loopMIDI virtual port. Setup guides for every host ship with the product.</p>
+</div></section>
+
+<section id="pricing"><div class="wrap">
+  <h2>Pricing</h2>
+  <div class="placeholder"><strong>Draft prices.</strong> These are hypotheses to validate against comparable tools, not an offer. Do not publish until confirmed.</div>
+  <div class="grid3">
+    <div class="card"><h3>Pacemaker Lite</h3><div class="price">$39</div><p>Plugin and standalone, Link output, one input role.</p></div>
+    <div class="card"><h3>Pacemaker</h3><div class="price">$99</div><p>All outputs, all roles, song map, drift report. Perpetual licence, up to three of your machines, works offline.</p></div>
+    <div class="card"><h3>Pacemaker Box image</h3><div class="price">$59</div><p>Raspberry Pi image (planned). Requires a Pacemaker licence.</p></div>
+  </div>
+  <p>Upgrades from Lite to Pacemaker: half the difference. 14-day free trial with full tracking; outputs pause briefly at intervals until you add a key.</p>
+</div></section>
+
+<section id="get"><div class="wrap">
+  <h2>Get Pacemaker</h2>
+  <div class="placeholder"><strong>PLACEHOLDER.</strong> Nothing below is live yet. Replace the links after the store (Paddle or Lemon Squeezy) and the hosting are set up, and remove this box.</div>
+  <p>
+    <a class="btn" href="#get" aria-disabled="true">Download free trial (PLACEHOLDER)</a>
+    <a class="btn secondary" href="#get" aria-disabled="true">Buy Pacemaker (PLACEHOLDER)</a>
+    <a class="btn secondary" href="#get" aria-disabled="true">Pacemaker Box image (PLACEHOLDER)</a>
+  </p>
+  <ul class="clean">
+    <li>Windows 10 or 11 x64, macOS 11 or later (Apple Silicon and Intel), Linux x64.</li>
+    <li>Formats: VST3, CLAP, AU (macOS), LV2 (Linux), Standalone.</li>
+    <li>Support: <strong>[PLACEHOLDER support address]</strong></li>
+  </ul>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <p>Pacemaker is a working name; trademark clearance is pending. Ableton, Live, Link, Logic, MainStage, Reaper, Bitwig, Cubase, Nuendo, Studio One, Pro Tools, Reason, QLab, Resolume, VDMX and TouchDesigner are trademarks of their owners and are used only to describe compatibility. No endorsement is implied.</p>
+  <p>&copy; [PLACEHOLDER year and company]. [PLACEHOLDER privacy and terms links]</p>
+</div></footer>
+</body>
+</html>

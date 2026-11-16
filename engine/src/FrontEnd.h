@@ -15,7 +15,6 @@ struct FrontEndParams {
     int localMeanM = 10;          // local mean subtraction length
     int w1 = 3;                   // peak neighbourhood (frames, both sides)
     int w2 = 10;                  // mean/std history (frames)
-    float k = 1.0f;               // delta = k * running std
     float minNovelty = 0.3f;      // absolute floor (silence guard), band-mean flux units
     double minGapSeconds = 0.030;
 };
@@ -34,7 +33,7 @@ public:
     // Called by the engine exactly once per hop. frameEndSample is the engine sample index
     // just after the last sample of this frame. Returns the full-band novelty of the frame
     // and the onset decided for frame (current - w1), if any.
-    FrameOut analyse(int64_t frameEndSample);
+    FrameOut analyse(int64_t frameEndSample, float thresholdScale);
 
     // Delay from an onset's true time to the moment it is reported, in samples (approx).
     int delaySamples() const { return p_.window / 2 + (p_.w1 + 1) * p_.hop; }

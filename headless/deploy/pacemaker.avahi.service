@@ -1,0 +1,17 @@
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<!-- Advertises the Pacemaker web UI. The host name (pacemaker.local) comes from the system host name;
+     install.sh sets it to "pacemaker" (the hostname option of install.sh changes it). -->
+<service-group>
+  <name replace-wildcards="yes">Pacemaker Box on %h</name>
+  <service>
+    <type>_http._tcp</type>
+    <port>8080</port>
+    <txt-record>path=/</txt-record>
+    <txt-record>product=pacemaker</txt-record>
+  </service>
+  <service>
+    <type>_pacemaker._tcp</type>
+    <port>8080</port>
+  </service>
+</service-group>
